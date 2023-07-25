@@ -4,12 +4,11 @@ var fs = require("fs");
 const { WebSocket } = require("ws");
 
 let debug = false;
-const UNIPI_IP = "192.168.225.143"
+const UNIPI_IP = "192.168.225.143";
 let commandInput = undefined;
 let fadeValue = undefined;
 
 const ws = new WebSocket("ws://" + UNIPI_IP + ":8007");
-
 
 ws.on("message", function message(data) {
   console.log("Message: " + data);

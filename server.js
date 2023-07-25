@@ -27,7 +27,7 @@ let analogTestValue = 0;
 var dimmerLoopTimer = undefined;
 var dimmerLoopDebugTimer = undefined;
 var dimmerLoopTimeMs = 0;
-var loopRunning = false
+var loopRunning = false;
 
 const nets = networkInterfaces();
 const results = Object.create(null); // Or just '{}', an empty object
@@ -397,7 +397,7 @@ wsServer.on("connection", function (connection) {
   // Response on User Connected
   const userId = v4();
   console.log(`[WS] Recieved a new connection.`);
-  socketSendMessage({ message: "connected", data: { userId,loopRunning} });
+  socketSendMessage({ message: "connected", data: { userId, loopRunning } });
   // Store the new connection and handle messages
   clients[userId] = connection;
   console.log(`[WS] ${userId} connected.`);
