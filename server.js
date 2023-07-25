@@ -8,6 +8,7 @@ const { WebSocketServer } = require("ws");
 var EventEmitter = require("events").EventEmitter;
 const client = new ModbusRTU();
 var theEvent = new EventEmitter();
+const { exec, spawn } = require("child_process");
 const { networkInterfaces } = require("os");
 
 const server = http.createServer();
@@ -17,17 +18,22 @@ const DEVICE_ID = 0;
 const UNIPI_IP_LOCAL = "127.0.0.1";
 const UNIPI_MODBUS_PORT = 502;
 const WS_PORT = 8007;
+const testLoop = process.env.TEST || "false";
+var debug = process.env.DEBUG == "true" ? true : false;
 
-let debug = false;
-
-let testRun = false;
 const clients = {};
 var wsConnection;
 let analogTestValue = 0;
 var dimmerLoopTimer = undefined;
 var dimmerLoopDebugTimer = undefined;
+var dimmerTestLoopTimer = undefined;
 var dimmerLoopTimeMs = 0;
 var loopRunning = false;
+
+var runtimeData = {
+  appVersion: 0,
+  ip: "",
+};
 
 const nets = networkInterfaces();
 const results = Object.create(null); // Or just '{}', an empty object
@@ -38,11 +44,32 @@ function IsJsonString(str) {
     try {
       result = JSON.parse(str);
     } catch (e) {
-      resolve(str);
-      return str;
+      resolve(false);
+      return false;
     }
     resolve(result);
     return result;
+  });
+}
+
+function getBalenaRelease() {
+  return new Promise((resolve, reject) => {
+    exec(
+      'curl -X GET --header "Content-Type:application/json" "$BALENA_SUPERVISOR_ADDRESS/v1/device?apikey=$BALENA_SUPERVISOR_API_KEY"',
+      (error, stdout, stderr) => {
+        if (error) {
+          //console.log(`error: ${error.message}`);
+          resolve(false);
+          return;
+        }
+        if (stderr) {
+          //console.log(`stderr: ${stderr}`);
+          //resolve(stderr);
+          //return;
+        }
+        resolve(IsJsonString(stdout));
+      }
+    );
   });
 }
 
@@ -138,22 +165,51 @@ writeModbusRegister = async (deviceId, register, data) => {
       await client.setID(deviceId);
       var registerWriteResolve = await client.writeRegisters(register, data);
       resolve(registerWriteResolve);
+      return;
     } catch (e) {
       // if error return -1
       console.log("[MB READ] Error Register Write: " + e.message);
       resolve(false);
-      return -1;
+      return;
     }
   });
 };
 
+//set registers 1.1 to 0-10V
+//register 3000-3001
 setAnalogVoltage = async (voltage) => {
   return new Promise(async (resolve, reject) => {
     var floatTest = Float32ToBin(voltage); // 0011111111011001 1001100110011010
-    if (debug) console.log(floatTest);
     //Write Voltage to AOR 1.1
     if (debug) console.log("[SYSTEM] Set Analog Out(1.1) to " + floatTest.float + "V");
+    //if(debug) console.log(floatTest);
+
     await writeModbusRegister(DEVICE_ID, 3000, [floatTest.int.low, floatTest.int.high]); //Relay 2.1
+    resolve(true);
+  });
+};
+
+//set registers 2.1-2.4 to 0-10V
+//register 102-105
+setAnalogVoltageExt = async (voltage, port) => {
+  return new Promise(async (resolve, reject) => {
+    var inputVoltage = voltage;
+    if (inputVoltage > 10) inputVoltage = 10;
+
+    var register = port + 101;
+    if (register > 105) register = 105;
+    if (register < 102) register = 102;
+
+    var setNumberVoltage = 0; //needs range 0..4000 // 0-10V
+    setNumberVoltage = (inputVoltage / 10) * 4000;
+    if (setNumberVoltage > 4000) setNumberVoltage = 4000;
+
+    setNumberVoltage = Math.round(setNumberVoltage);
+
+    //Write Voltage to AOR 1.1
+    if (debug) console.log("[SYSTEM] Set Analog Ext Out(2." + port + ") to " + voltage + "V Number:" + setNumberVoltage);
+
+    await writeModbusRegister(DEVICE_ID, register, [setNumberVoltage]); //Relay 2.1
     resolve(true);
   });
 };
@@ -223,35 +279,7 @@ function getBaseLog(x, y) {
   return Math.log(y) / Math.log(x);
 }
 
-test = async () => {
-  /*
-  //Get Bits from a Byte
-  //testBits = getBitFromByte(9);
-
-  //Set bits with 0b00010001 for example
-
-  //Reg Read Example
-  var readDataRegister = await readModbusRegister(DEVICE_ID, 3000, 2);
-  console.log("[SYSTEM] Register 3000 Read: " + readDataRegister);
-  console.log("[SYSTEM] Register DOUT Voltage Dec: " + BinToFloat32(getBitFromByte(readDataRegister[1]) + getBitFromByte(readDataRegister[0])));
-
-  //Coil Read Example
-  var readDataCoil = await readModbusCoil(DEVICE_ID, 4, 8); //Digital Input 1.1 - 1.4
-  console.log("[SYSTEM] Coil 4-11: " + readDataCoil);
-
-  //Write register and coil example
-  //await writeModbusCoil(DEVICE_ID, 100, false); //Relay 2.1
-  //await writeModbusRegister(DEVICE_ID, 1, [0b000]); //DOUT 1.1-1.4 1
-
-  //Convert float to usable json array with two 16 bit values to send
-
-  if (testRun) await relaisDemo(1);*/
-
-  console.log();
-  runDimmerLoop(800);
-};
-
-setLcLevel = async (level) => {
+var setLcLevel = async (level) => {
   return new Promise(async (resolve, reject) => {
     var inputLevel = level;
     if (inputLevel > 100) inputLevel = 100;
@@ -262,7 +290,66 @@ setLcLevel = async (level) => {
   });
 };
 
-runDimmerLoop = async (time = 100, start = undefined) => {
+var runTestLoop = async (start = undefined) => {
+  return new Promise(async (resolve, reject) => {
+    if (start != undefined && start != true) {
+      console.log("[DEBUG] dimmer test stop");
+      clearTimeout(dimmerTestLoopTimer);
+      dimmerTestLoopTimer = undefined;
+      loopRunning = false;
+      resolve(true);
+      return;
+    }
+    if (dimmerTestLoopTimer != undefined) {
+      console.log("[SYSTEM] dimmer test running");
+      resolve(false);
+      return;
+    }
+
+    console.log("[SYSTEM] dimmer test start");
+
+    var time = 150;
+    var counterStart = 30;
+    var countLimit = 120;
+
+    var counter = counterStart;
+    var dimValue = 0;
+    var countUp = false;
+    loopRunning = true;
+    var dimmerLoopTimeMs = (countLimit - counterStart) * time;
+
+    dimmerTestLoopTimer = setInterval(async () => {
+      dimValue = Math.pow(counter, 2) / (4000 / 3); //counter 100
+
+      dimValue = Math.round(dimValue * 1000) / 1000;
+      if (dimValue < 1) dimValue = 0;
+      if (dimValue > 10) dimValue = 10;
+
+      setAnalogVoltage(dimValue);
+      setAnalogVoltageExt(dimValue, 1);
+      setAnalogVoltageExt(dimValue, 2);
+      setAnalogVoltageExt(dimValue, 3);
+      setAnalogVoltageExt(dimValue, 4);
+
+      if (counter < countLimit && countUp) {
+        counter++;
+      } else {
+        if (countUp)
+          await socketSendMessage({ message: "dimmerlooptest", data: { loopRunning, loopDirection: "down", loopTimeMs: dimmerLoopTimeMs } });
+        countUp = false;
+        counter--;
+        if (counter <= counterStart) {
+          if (!countUp)
+            await socketSendMessage({ message: "dimmerlooptest", data: { loopRunning, loopDirection: "up", loopTimeMs: dimmerLoopTimeMs } });
+          countUp = true;
+        }
+      }
+    }, time);
+    resolve(true);
+  });
+};
+
+var runDimmerLoop = async (time = 100, start = undefined) => {
   return new Promise(async (resolve, reject) => {
     if (start != undefined) {
       console.log("[SYSTEM] Dimmer Loop stop");
@@ -316,36 +403,34 @@ runDimmerLoop = async (time = 100, start = undefined) => {
       }
     }, time);
     resolve(true);
-    //setAnalogVoltage(1.5);
   });
 };
 
-init = async () => {
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
-      // 'IPv4' is in Node <= 17, from 18 it's a number 4 or 6
-      const familyV4Value = typeof net.family === "string" ? "IPv4" : 4;
-      if (net.family === familyV4Value && !net.internal) {
-        if (!results[name]) {
-          results[name] = [];
-        }
-        results[name].push(net.address);
-      }
-    }
+var init = async () => {
+  var appVersion = await getBalenaRelease();
+
+  if (appVersion !== false) {
+    runtimeData.appVersion = appVersion.commit.slice(0, 7);
+    runtimeData.ip = appVersion.ip_address;
+    console.log(runtimeData);
+  } else {
+    console.log("[SYSTEM] no response from balena container");
   }
-  console.log("[SYSTEM] found ip: " + results.eth0);
 
   await initModbus(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
+
   startLedLoop();
-  console.log("[SYSTEM] modbus ready");
+
+  if (testLoop === "true") {
+    runTestLoop(true);
+  }
+
+  console.log("[SYSTEM] init done");
 };
 
 init();
 
-//test();
-
-wsMessageHandler = async (messageData) => {
+var wsMessageHandler = async (messageData) => {
   var jsonData = await IsJsonString(messageData);
 
   if (jsonData.hasOwnProperty("command")) {
@@ -372,18 +457,19 @@ wsMessageHandler = async (messageData) => {
   }
 };
 
-socketSendMessage = async (messageData) => {
+var socketSendMessage = async (messageData) => {
   return new Promise(async (resolve, reject) => {
     if (wsConnection === undefined) {
       console.log("[WS] ERROR send message failed, no connection");
       resolve(false);
+      return;
     }
     wsConnection.send(JSON.stringify(messageData));
     resolve(true);
   });
 };
 
-wsServer.on("connection", function (connection) {
+wsServer.on("connection", async function (connection) {
   wsConnection = connection;
   connection.on("message", function message(data) {
     console.log("[WS] received: %s", data);
@@ -397,7 +483,8 @@ wsServer.on("connection", function (connection) {
   // Response on User Connected
   const userId = v4();
   console.log(`[WS] Recieved a new connection.`);
-  socketSendMessage({ message: "connected", data: { userId, loopRunning } });
+  var balenaData = await getBalenaRelease();
+  socketSendMessage({ message: "connected", data: { userId, loopRunning, balenaData } });
   // Store the new connection and handle messages
   clients[userId] = connection;
   console.log(`[WS] ${userId} connected.`);

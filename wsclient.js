@@ -4,7 +4,9 @@ var fs = require("fs");
 const { WebSocket } = require("ws");
 
 let debug = false;
-const UNIPI_IP = "192.168.225.143";
+//const UNIPI_IP = "192.168.225.143";
+const UNIPI_IP = "192.168.225.204";
+
 let commandInput = undefined;
 let fadeValue = undefined;
 
