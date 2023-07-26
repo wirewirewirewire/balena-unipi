@@ -8,17 +8,20 @@ const { WebSocketServer } = require("ws");
 var EventEmitter = require("events").EventEmitter;
 const client = new ModbusRTU();
 const { exec, spawn } = require("child_process");
+const modbusHelper = require("./app/modbushelper.js");
 
 const server = http.createServer();
 const wsServer = new WebSocketServer({ server });
 
+//Modbus
 const DEVICE_ID = 0;
 const UNIPI_IP_LOCAL = "127.0.0.1";
 const UNIPI_MODBUS_PORT = 502;
-const WS_PORT = 8007;
+
+const WS_PORT = 8007; //Socket
+
 const testLoop = process.env.TEST || "false";
 var debug = process.env.DEBUG == "true" ? true : false;
-
 const clients = {};
 var wsConnection;
 var dimmerLoopTimer = undefined;
@@ -570,7 +573,9 @@ var init = async () => {
     console.log("[SYSTEM] no response from balena container");
   }
 
-  await initModbus(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
+  //await initModbus(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
+  modbusHelper.init(DEVICE_ID);
+  modbusHelper.connect(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
 
   for (let index = 1; index <= 4; index++) {
     await setLed(index, false);
