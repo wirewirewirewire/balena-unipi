@@ -37,10 +37,12 @@ module.exports = {
   setLcLevel: function (level) {
     return new Promise(async (resolve, reject) => {
       var inputLevel = level;
-      if (inputLevel > 100) inputLevel = 100;
+      inputLevel = Math.round((inputLevel / 100) * 10);
+
+      if (inputLevel > 10) inputLevel = 10;
       if (inputLevel < 0) inputLevel = 0;
 
-      await ModbusHelper.setAnalogPortMain(dimValue);
+      await ModbusHelper.setAnalogPortMain(inputLevel);
       resolve(true);
     });
   },

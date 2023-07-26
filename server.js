@@ -7,7 +7,7 @@ const { WebSocketServer } = require("ws");
 var EventEmitter = require("events").EventEmitter;
 const { exec, spawn } = require("child_process");
 const ModbusHelper = require("./app/modbushelper.js");
-const UnipiHelper = require("./app/modbushelper.js");
+const UnipiHelper = require("./app/unipihelper.js");
 
 const server = http.createServer();
 const wsServer = new WebSocketServer({ server });
@@ -38,6 +38,10 @@ var runtimeData = {
   ip: "",
 };
 
+function getBaseLog(x, y) {
+  return Math.log(y) / Math.log(x);
+}
+
 function IsJsonString(str) {
   return new Promise(async (resolve, reject) => {
     var result;
@@ -51,6 +55,10 @@ function IsJsonString(str) {
     return result;
   });
 }
+
+String.prototype.replaceAt = function (index, replacement) {
+  return this.substring(0, index) + replacement + this.substring(index + replacement.length);
+};
 
 function getBalenaRelease() {
   return new Promise((resolve, reject) => {
@@ -72,20 +80,6 @@ function getBalenaRelease() {
     );
   });
 }
-
-var delay = async (time) => {
-  return new Promise(async (resolve, reject) => {
-    setTimeout(resolve, time);
-  });
-};
-
-function getBaseLog(x, y) {
-  return Math.log(y) / Math.log(x);
-}
-
-String.prototype.replaceAt = function (index, replacement) {
-  return this.substring(0, index) + replacement + this.substring(index + replacement.length);
-};
 
 function startLedLoop(stop = undefined) {
   if (stop != undefined) {
@@ -123,36 +117,6 @@ function startLedLoop(stop = undefined) {
     enabled = !enabled;
   }, 1000);
 }
-
-var relaisDemo = async (loops) => {
-  return new Promise(async (resolve, reject) => {
-    for (let index2 = 0; index2 < loops; index2++) {
-      for (let index = 0; index < 14; index++) {
-        await delay(100);
-        await writeModbusCoil(DEVICE_ID, 100 + index, [true]); //Relay 2.1
-      }
-      for (let index = 0; index < 14; index++) {
-        await delay(20);
-        await writeModbusCoil(DEVICE_ID, 100 + index, [false]); //Relay 2.1
-      }
-    }
-    for (let index = 0; index < 14; index++) {
-      await writeModbusCoil(DEVICE_ID, 100 + index, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); //Relay 2.1
-    }
-    resolve(true);
-  });
-};
-
-var setLcLevel = async (level) => {
-  return new Promise(async (resolve, reject) => {
-    var inputLevel = level;
-    if (inputLevel > 100) inputLevel = 100;
-    if (inputLevel < 0) inputLevel = 0;
-
-    setAnalogVoltage(inputLevel / 10);
-    resolve(true);
-  });
-};
 
 var runTestLoop = async (start = undefined) => {
   return new Promise(async (resolve, reject) => {
@@ -261,7 +225,7 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
       if (dimValue < 1) dimValue = 0;
       if (dimValue > 10) dimValue = 10;
 
-      setAnalogVoltage(dimValue);
+      ModbusHelper.setAnalogPortMain(dimValue);
 
       if (counter < countLimit && countUp) {
         counter++;
@@ -290,19 +254,22 @@ var wsMessageHandler = async (messageData) => {
     switch (jsonData.command) {
       case "lcstart":
         var dimValue = 100;
-        runDimmerLoop(100, false);
+        await runDimmerLoop(100, false);
+        await runTestLoop(false);
         if (jsonData.hasOwnProperty("value")) {
           dimValue = jsonData.value;
         }
         runDimmerLoop(dimValue);
         break;
       case "lcoff":
-        runDimmerLoop(100, false);
-        setLcLevel(0);
+        await runDimmerLoop(100, false);
+        await runTestLoop(false);
+        UnipiHelper.setLcLevel(0);
         break;
       case "lcon":
-        runDimmerLoop(100, false);
-        setLcLevel(90);
+        await runDimmerLoop(100, false);
+        await runTestLoop(false);
+        UnipiHelper.setLcLevel(90);
         break;
       case "setled":
         var ledNo = 0;
@@ -367,6 +334,7 @@ var init = async () => {
     debug = true;
   }
 
+  //get some data from balena
   var appVersion = await getBalenaRelease();
   console.log(appVersion);
   if (appVersion !== false) {
@@ -381,17 +349,21 @@ var init = async () => {
     console.log("[SYSTEM] no response from balena container");
   }
 
+  //Init Modbus and Unipi Helpers
   ModbusHelper.init(DEVICE_ID, debug);
+  UnipiHelper.init(debug);
   await ModbusHelper.connect(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
 
+  //Set LED loop for feedback on device
   for (let index = 1; index <= 4; index++) {
     await ModbusHelper.setUserLed(index, false);
   }
-
   startLedLoop();
 
+  //test loop for analog out test
   if (testLoop === "true") {
     runTestLoop(true);
+    //UnipiHelper.startRelaisDemo(2);
   }
 
   console.log("[SYSTEM] init done");
