@@ -2,10 +2,10 @@ const util = require("util");
 var path = require("path");
 var fs = require("fs");
 const { WebSocket } = require("ws");
-const ws = new WebSocket("ws://" + UNIPI_IP + ":8007");
 
 //const UNIPI_IP = "192.168.225.143";
 const UNIPI_IP = "192.168.225.204";
+const ws = new WebSocket("ws://" + UNIPI_IP + ":8007");
 
 let debug = false;
 let wsOpen = false;
@@ -34,6 +34,7 @@ function wsInitAwait() {
 }
 
 var init = async () => {
+  console.log("[START] ...connecting to " + UNIPI_IP + ":8007");
   await wsInitAwait();
 
   if (process.argv.indexOf("-d") > -1) {

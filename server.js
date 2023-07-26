@@ -7,9 +7,7 @@ const http = require("http");
 const { WebSocketServer } = require("ws");
 var EventEmitter = require("events").EventEmitter;
 const client = new ModbusRTU();
-var theEvent = new EventEmitter();
 const { exec, spawn } = require("child_process");
-const { networkInterfaces } = require("os");
 
 const server = http.createServer();
 const wsServer = new WebSocketServer({ server });
@@ -23,20 +21,20 @@ var debug = process.env.DEBUG == "true" ? true : false;
 
 const clients = {};
 var wsConnection;
-let analogTestValue = 0;
 var dimmerLoopTimer = undefined;
 var dimmerLoopDebugTimer = undefined;
 var dimmerTestLoopTimer = undefined;
-var dimmerLoopTimeMs = 0;
-var loopRunning = false;
+
+var loopInfo = {
+  running: false,
+  runningTest: false,
+  loopTimeMs: 0,
+};
 
 var runtimeData = {
   appVersion: 0,
   ip: "",
 };
-
-const nets = networkInterfaces();
-const results = Object.create(null); // Or just '{}', an empty object
 
 function IsJsonString(str) {
   return new Promise(async (resolve, reject) => {
@@ -260,7 +258,7 @@ function startLedLoop(stop = undefined) {
     if (wsConnection !== undefined && !wsStatus) {
       wsStatus = true;
       await setLed(3, true);
-    } else if (wsStatus) {
+    } else if (wsStatus && wsConnection === undefined) {
       await setLed(3, false);
       wsStatus = false;
     }
@@ -271,7 +269,7 @@ function startLedLoop(stop = undefined) {
     if (isUpdate && !updateStatus) {
       await setLed(4, true);
       updateStatus = true;
-    } else if (updateStatus) {
+    } else if (updateStatus && !isUpdate) {
       await setLed(4, false);
       updateStatus = false;
     }
@@ -351,7 +349,8 @@ var runTestLoop = async (start = undefined) => {
       console.log("[DEBUG] dimmer test stop");
       clearTimeout(dimmerTestLoopTimer);
       dimmerTestLoopTimer = undefined;
-      loopRunning = false;
+      loopInfo.runningTest = false;
+      loopInfo.loopTimeMs = 0;
       resolve(true);
       return;
     }
@@ -370,8 +369,9 @@ var runTestLoop = async (start = undefined) => {
     var counter = counterStart;
     var dimValue = 0;
     var countUp = false;
-    loopRunning = true;
+    loopInfo.runningTest = true;
     var dimmerLoopTimeMs = (countLimit - counterStart) * time;
+    loopInfo.loopTimeMs = dimmerLoopTimeMs;
 
     dimmerTestLoopTimer = setInterval(async () => {
       dimValue = Math.pow(counter, 2) / (4000 / 3); //counter 100
@@ -390,12 +390,18 @@ var runTestLoop = async (start = undefined) => {
         counter++;
       } else {
         if (countUp)
-          await socketSendMessage({ message: "dimmerlooptest", data: { loopRunning, loopDirection: "down", loopTimeMs: dimmerLoopTimeMs } });
+          await socketSendMessage({
+            message: "dimmerlooptest",
+            data: { loopRunning: loopInfo.runningTest, loopDirection: "down", loopTimeMs: dimmerLoopTimeMs },
+          });
         countUp = false;
         counter--;
         if (counter <= counterStart) {
           if (!countUp)
-            await socketSendMessage({ message: "dimmerlooptest", data: { loopRunning, loopDirection: "up", loopTimeMs: dimmerLoopTimeMs } });
+            await socketSendMessage({
+              message: "dimmerlooptest",
+              data: { loopRunning: loopInfo.runningTest, loopDirection: "up", loopTimeMs: dimmerLoopTimeMs },
+            });
           countUp = true;
         }
       }
@@ -412,7 +418,8 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
       clearTimeout(dimmerLoopDebugTimer);
       dimmerLoopTimer = undefined;
       dimmerLoopDebugTimer = undefined;
-      loopRunning = false;
+      loopInfo.running = false;
+      loopInfo.loopTimeMs = 0;
       resolve(true);
       return;
     }
@@ -426,8 +433,9 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
     var countLimit = 1400;
     var counter = counterStart;
     var dimValue = 0;
-    loopRunning = true;
-    dimmerLoopTimeMs = (countLimit - counterStart) * time;
+    loopInfo.running = true;
+    var dimmerLoopTimeMs = (countLimit - counterStart) * time;
+    loopInfo.loopTimeMs = dimmerLoopTimeMs;
 
     console.log("[SYSTEM] dimmer loop time: " + dimmerLoopTimeMs + "ms");
 
@@ -447,12 +455,14 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
       if (counter < countLimit && countUp) {
         counter++;
       } else {
-        if (countUp) socketSendMessage({ message: "dimmerloop", data: { loopRunning, loopDirection: "down", loopTimeMs: dimmerLoopTimeMs } });
+        if (countUp)
+          socketSendMessage({ message: "dimmerloop", data: { loopRunning: loopInfo.running, loopDirection: "down", loopTimeMs: dimmerLoopTimeMs } });
         countUp = false;
 
         counter--;
         if (counter <= counterStart) {
-          if (!countUp) socketSendMessage({ message: "dimmerloop", data: { loopRunning, loopDirection: "up", loopTimeMs: dimmerLoopTimeMs } });
+          if (!countUp)
+            socketSendMessage({ message: "dimmerloop", data: { loopRunning: loopInfo.running, loopDirection: "up", loopTimeMs: dimmerLoopTimeMs } });
           countUp = true;
         }
       }
@@ -460,33 +470,6 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
     resolve(true);
   });
 };
-
-var init = async () => {
-  var appVersion = await getBalenaRelease();
-
-  if (appVersion !== false) {
-    runtimeData.appVersion = appVersion.commit.slice(0, 7);
-    runtimeData.ip = appVersion.ip_address;
-    console.log(runtimeData);
-  } else {
-    console.log("[SYSTEM] no response from balena container");
-  }
-
-  await initModbus(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
-
-  for (let index = 1; index <= 4; index++) {
-    await setLed(index, false);
-  }
-  startLedLoop();
-
-  if (testLoop === "true") {
-    runTestLoop(true);
-  }
-
-  console.log("[SYSTEM] init done");
-};
-
-init();
 
 var wsMessageHandler = async (messageData) => {
   var jsonData = await IsJsonString(messageData);
@@ -553,7 +536,7 @@ wsServer.on("connection", async function (connection) {
   const userId = v4();
   console.log(`[WS] Recieved a new connection.`);
   var balenaData = await getBalenaRelease();
-  socketSendMessage({ message: "connected", data: { userId, loopRunning, balenaData } });
+  socketSendMessage({ message: "connected", data: { userId, loopInfo, balenaData } });
   // Store the new connection and handle messages
   clients[userId] = connection;
   console.log(`[WS] ${userId} connected.`);
@@ -563,27 +546,46 @@ server.listen(WS_PORT, () => {
   console.log(`[WS] WebSocket server is running on port ${WS_PORT}`);
 });
 
-if (debug) {
-  process.argv.forEach(function (val, index, array) {
-    console.log(index + ": " + val);
-  });
-}
+var init = async () => {
+  console.log("[SYSTEM] init start");
+  if (process.argv.indexOf("-d") > -1) {
+    console.log("[START] -d startup with debug");
+    process.argv.forEach(function (val, index, array) {
+      console.log(index + ": " + val);
+    });
+    debug = true;
+  }
 
-if (process.argv.indexOf("-d") > -1) {
-  console.log("[START] -d startup with debug");
-  debug = true;
-}
+  var appVersion = await getBalenaRelease();
+  console.log(appVersion);
+  if (appVersion !== false) {
+    if (appVersion !== undefined && appVersion.commit !== undefined) {
+      runtimeData.appVersion = appVersion.commit.slice(0, 7);
+    }
+    if (appVersion !== undefined && appVersion.ip_address !== undefined) {
+      runtimeData.ip = appVersion.ip_address;
+    }
+    console.log(runtimeData);
+  } else {
+    console.log("[SYSTEM] no response from balena container");
+  }
 
-if (process.argv.indexOf("-a") > -1) {
-  let index = process.argv.indexOf("-a");
-  analogTestValue = process.argv[index + 1];
-  console.log("[START] -a analog value set: " + analogTestValue);
-}
+  await initModbus(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
 
-if (process.argv.indexOf("-t") > -1) {
-  console.log("[START] -t go for test run: " + analogTestValue);
-  testRun = true;
-}
+  for (let index = 1; index <= 4; index++) {
+    await setLed(index, false);
+  }
+
+  startLedLoop();
+
+  if (testLoop === "true") {
+    runTestLoop(true);
+  }
+
+  console.log("[SYSTEM] init done");
+};
+
+init();
 
 process.on("SIGINT", (_) => {
   console.log("SIGINT");
