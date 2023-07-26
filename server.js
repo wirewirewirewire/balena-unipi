@@ -108,15 +108,19 @@ const Float32ToBin = (float32) => {
   return { bin: { high: firstHalf, low: secondHalf }, int: { high: inthigh, low: intlow }, float: float32 };
 };
 
-delay = async (time) => {
+var delay = async (time) => {
   return new Promise(async (resolve, reject) => {
     setTimeout(resolve, time);
   });
 };
 
+String.prototype.replaceAt = function (index, replacement) {
+  return this.substring(0, index) + replacement + this.substring(index + replacement.length);
+};
+
 //return array if number is not set or the spesific bit if set as number
-getBitFromByte = (byte, number = undefined) => {
-  var base2 = byte.toString(2);
+var getBitFromByte = (byte, number = undefined) => {
+  var base2 = (byte >>> 0).toString(2);
   let fillZeros = "0".repeat(16 - base2.length);
   base2 = fillZeros + base2;
   if (number != undefined) {
@@ -126,7 +130,7 @@ getBitFromByte = (byte, number = undefined) => {
   }
 };
 
-readModbusRegister = async (deviceId, register, byteLength) => {
+var readModbusRegister = async (deviceId, register, byteLength) => {
   return new Promise(async (resolve, reject) => {
     try {
       if (debug) console.log("[MB READ] ID: " + deviceId, " Register: " + register, " Length: " + byteLength);
@@ -142,7 +146,7 @@ readModbusRegister = async (deviceId, register, byteLength) => {
   });
 };
 
-readModbusCoil = async (deviceId, register, byteLength) => {
+var readModbusCoil = async (deviceId, register, byteLength) => {
   return new Promise(async (resolve, reject) => {
     try {
       if (debug) console.log("[MB READ] ID: " + deviceId, " Coil: " + register, " Length: " + byteLength);
@@ -158,7 +162,7 @@ readModbusCoil = async (deviceId, register, byteLength) => {
   });
 };
 //data must be array of int
-writeModbusRegister = async (deviceId, register, data) => {
+var writeModbusRegister = async (deviceId, register, data) => {
   return new Promise(async (resolve, reject) => {
     try {
       if (debug) console.log("[MB WRITE] ID: " + deviceId, " Register: " + register, " Data: " + data);
@@ -177,7 +181,7 @@ writeModbusRegister = async (deviceId, register, data) => {
 
 //set registers 1.1 to 0-10V
 //register 3000-3001
-setAnalogVoltage = async (voltage) => {
+var setAnalogVoltage = async (voltage) => {
   return new Promise(async (resolve, reject) => {
     var floatTest = Float32ToBin(voltage); // 0011111111011001 1001100110011010
     //Write Voltage to AOR 1.1
@@ -191,7 +195,7 @@ setAnalogVoltage = async (voltage) => {
 
 //set registers 2.1-2.4 to 0-10V
 //register 102-105
-setAnalogVoltageExt = async (voltage, port) => {
+var setAnalogVoltageExt = async (voltage, port) => {
   return new Promise(async (resolve, reject) => {
     var inputVoltage = voltage;
     if (inputVoltage > 10) inputVoltage = 10;
@@ -215,7 +219,7 @@ setAnalogVoltageExt = async (voltage, port) => {
 };
 
 //data must be array of int
-writeModbusCoil = async (deviceId, register, data) => {
+var writeModbusCoil = async (deviceId, register, data) => {
   return new Promise(async (resolve, reject) => {
     try {
       if (debug) console.log("[MB WRITE] ID: " + deviceId, " Coil: " + register, " Data: " + data);
@@ -244,19 +248,39 @@ function startLedLoop(stop = undefined) {
     clearTimeout(ledIntervall);
     return;
   }
-  var counter = 2;
-  const ledIntervall = setInterval(async () => {
-    await writeModbusRegister(DEVICE_ID, 20, [counter]); //Relay 2.1
+  var enabled = false;
+  var wsStatus = false;
+  var wsStatus = false;
+  var updateStatus = false;
 
-    if (counter < 8) {
-      counter = counter + counter;
-    } else {
-      counter = 2;
+  const ledIntervall = setInterval(async () => {
+    //Connected led x2
+    await setLed(2, enabled);
+    //socket connected led x3
+    if (wsConnection !== undefined && !wsStatus) {
+      wsStatus = true;
+      await setLed(3, true);
+    } else if (wsStatus) {
+      await setLed(3, false);
+      wsStatus = false;
     }
+
+    //Check if balena update is running (led X4)
+    var checkUpdate = await getBalenaRelease();
+    var isUpdate = checkUpdate.update_pending;
+    if (isUpdate && !updateStatus) {
+      await setLed(4, true);
+      updateStatus = true;
+    } else if (updateStatus) {
+      await setLed(4, false);
+      updateStatus = false;
+    }
+
+    enabled = !enabled;
   }, 1000);
 }
 
-relaisDemo = async (loops) => {
+var relaisDemo = async (loops) => {
   return new Promise(async (resolve, reject) => {
     for (let index2 = 0; index2 < loops; index2++) {
       for (let index = 0; index < 14; index++) {
@@ -286,6 +310,37 @@ var setLcLevel = async (level) => {
     if (inputLevel < 0) inputLevel = 0;
 
     setAnalogVoltage(inputLevel / 10);
+    resolve(true);
+  });
+};
+
+var setLed = async (led, status) => {
+  return new Promise(async (resolve, reject) => {
+    var ledByte = await readModbusRegister(DEVICE_ID, 20, 1);
+    var ledBits = getBitFromByte(ledByte);
+    if (debug) console.log("[SYSTEM] SET LED: " + led + " to: " + status);
+    if (debug) console.log("[SYSTEM] setLed: byte read: " + ledByte);
+    if (debug) console.log("[SYSTEM] setLed: bits read: " + ledBits);
+    switch (led) {
+      case 1:
+        ledBits = status ? ledBits.replaceAt(16 - led, "1") : ledBits.replaceAt(16 - led, "0");
+        break;
+      case 2:
+        ledBits = status ? ledBits.replaceAt(16 - led, "1") : ledBits.replaceAt(16 - led, "0");
+        break;
+      case 3:
+        ledBits = status ? ledBits.replaceAt(16 - led, "1") : ledBits.replaceAt(16 - led, "0");
+        break;
+      case 4:
+        ledBits = status ? ledBits.replaceAt(16 - led, "1") : ledBits.replaceAt(16 - led, "0");
+        break;
+      default:
+        console.log("[SYSTEM] setLed Error: led not found");
+    }
+    ledByte = parseInt(ledBits, 2);
+    if (debug) console.log("[SYSTEM] setLed: byte after change: " + ledByte);
+    if (debug) console.log("[SYSTEM] setLed: bits after change: " + ledBits);
+    await writeModbusRegister(DEVICE_ID, 20, [ledByte]); //Relay 2.1
     resolve(true);
   });
 };
@@ -419,6 +474,9 @@ var init = async () => {
 
   await initModbus(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
 
+  for (let index = 1; index <= 4; index++) {
+    await setLed(index, false);
+  }
   startLedLoop();
 
   if (testLoop === "true") {
@@ -451,6 +509,17 @@ var wsMessageHandler = async (messageData) => {
       case "lcon":
         runDimmerLoop(100, false);
         setLcLevel(90);
+        break;
+      case "setled":
+        var ledNo = 0;
+        var ledStatus = false;
+        if (jsonData.hasOwnProperty("value")) {
+          ledStatus = jsonData.value;
+        }
+        if (jsonData.hasOwnProperty("number")) {
+          ledNo = jsonData.number;
+        }
+        await setLed(ledNo, ledStatus);
         break;
       default:
     }
