@@ -1,14 +1,13 @@
 const util = require("util");
 var path = require("path");
 var fs = require("fs");
-const ModbusRTU = require("modbus-serial");
 const { v4 } = require("uuid");
 const http = require("http");
 const { WebSocketServer } = require("ws");
 var EventEmitter = require("events").EventEmitter;
-const client = new ModbusRTU();
 const { exec, spawn } = require("child_process");
-const modbusHelper = require("./app/modbushelper.js");
+const ModbusHelper = require("./app/modbushelper.js");
+const UnipiHelper = require("./app/modbushelper.js");
 
 const server = http.createServer();
 const wsServer = new WebSocketServer({ server });
@@ -74,175 +73,19 @@ function getBalenaRelease() {
   });
 }
 
-const BinToFloat32 = (str) => {
-  var int = parseInt(str, 2);
-  if (int > 0 || int < 0) {
-    var sign = int >>> 31 ? -1 : 1;
-    var exp = ((int >>> 23) & 0xff) - 127;
-    var mantissa = ((int & 0x7fffff) + 0x800000).toString(2);
-    var float32 = 0;
-    for (i = 0; i < mantissa.length; i += 1) {
-      float32 += parseInt(mantissa[i]) ? Math.pow(2, exp) : 0;
-      exp--;
-    }
-    return float32 * sign;
-  } else return 0;
-};
-
-const Float32ToBin = (float32) => {
-  const HexToBin = (hex) => parseInt(hex, 16).toString(2).padStart(32, "0");
-  const getHex = (i) => ("00" + i.toString(16)).slice(-2);
-  let view = new DataView(new ArrayBuffer(4));
-  view.setFloat32(0, float32);
-  let floatNumberArray = HexToBin(
-    Array.apply(null, { length: 4 })
-      .map((_, i) => getHex(view.getUint8(i)))
-      .join("")
-  );
-
-  let half = Math.ceil(floatNumberArray.length / 2);
-  let firstHalf = floatNumberArray.slice(0, half);
-  let secondHalf = floatNumberArray.slice(half);
-  let inthigh = parseInt(firstHalf, 2);
-  let intlow = parseInt(secondHalf, 2);
-
-  return { bin: { high: firstHalf, low: secondHalf }, int: { high: inthigh, low: intlow }, float: float32 };
-};
-
 var delay = async (time) => {
   return new Promise(async (resolve, reject) => {
     setTimeout(resolve, time);
   });
 };
 
+function getBaseLog(x, y) {
+  return Math.log(y) / Math.log(x);
+}
+
 String.prototype.replaceAt = function (index, replacement) {
   return this.substring(0, index) + replacement + this.substring(index + replacement.length);
 };
-
-//return array if number is not set or the spesific bit if set as number
-var getBitFromByte = (byte, number = undefined) => {
-  var base2 = (byte >>> 0).toString(2);
-  let fillZeros = "0".repeat(16 - base2.length);
-  base2 = fillZeros + base2;
-  if (number != undefined) {
-    return base2[number];
-  } else {
-    return base2;
-  }
-};
-
-var readModbusRegister = async (deviceId, register, byteLength) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      if (debug) console.log("[MB READ] ID: " + deviceId, " Register: " + register, " Length: " + byteLength);
-      await client.setID(deviceId);
-      var registerData = await client.readHoldingRegisters(register, byteLength);
-      resolve(registerData.data);
-    } catch (e) {
-      // if error return -1
-      console.log("[MB READ] Error Register: " + e.message);
-      resolve(false);
-      return -1;
-    }
-  });
-};
-
-var readModbusCoil = async (deviceId, register, byteLength) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      if (debug) console.log("[MB READ] ID: " + deviceId, " Coil: " + register, " Length: " + byteLength);
-      await client.setID(deviceId);
-      var registerData = await client.readCoils(register, byteLength);
-      resolve(registerData.data);
-    } catch (e) {
-      // if error return -1
-      console.log("[MB READ] Error Coil: " + e.message);
-      resolve(false);
-      return -1;
-    }
-  });
-};
-//data must be array of int
-var writeModbusRegister = async (deviceId, register, data) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      if (debug) console.log("[MB WRITE] ID: " + deviceId, " Register: " + register, " Data: " + data);
-      await client.setID(deviceId);
-      var registerWriteResolve = await client.writeRegisters(register, data);
-      resolve(registerWriteResolve);
-      return;
-    } catch (e) {
-      // if error return -1
-      console.log("[MB READ] Error Register Write: " + e.message);
-      resolve(false);
-      return;
-    }
-  });
-};
-
-//set registers 1.1 to 0-10V
-//register 3000-3001
-var setAnalogVoltage = async (voltage) => {
-  return new Promise(async (resolve, reject) => {
-    var floatTest = Float32ToBin(voltage); // 0011111111011001 1001100110011010
-    //Write Voltage to AOR 1.1
-    if (debug) console.log("[SYSTEM] Set Analog Out(1.1) to " + floatTest.float + "V");
-    //if(debug) console.log(floatTest);
-
-    await writeModbusRegister(DEVICE_ID, 3000, [floatTest.int.low, floatTest.int.high]); //Relay 2.1
-    resolve(true);
-  });
-};
-
-//set registers 2.1-2.4 to 0-10V
-//register 102-105
-var setAnalogVoltageExt = async (voltage, port) => {
-  return new Promise(async (resolve, reject) => {
-    var inputVoltage = voltage;
-    if (inputVoltage > 10) inputVoltage = 10;
-
-    var register = port + 101;
-    if (register > 105) register = 105;
-    if (register < 102) register = 102;
-
-    var setNumberVoltage = 0; //needs range 0..4000 // 0-10V
-    setNumberVoltage = (inputVoltage / 10) * 4000;
-    if (setNumberVoltage > 4000) setNumberVoltage = 4000;
-
-    setNumberVoltage = Math.round(setNumberVoltage);
-
-    //Write Voltage to AOR 1.1
-    if (debug) console.log("[SYSTEM] Set Analog Ext Out(2." + port + ") to " + voltage + "V Number:" + setNumberVoltage);
-
-    await writeModbusRegister(DEVICE_ID, register, [setNumberVoltage]); //Relay 2.1
-    resolve(true);
-  });
-};
-
-//data must be array of int
-var writeModbusCoil = async (deviceId, register, data) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      if (debug) console.log("[MB WRITE] ID: " + deviceId, " Coil: " + register, " Data: " + data);
-      await client.setID(deviceId);
-      var coilResponse = await client.writeCoils(register, data);
-      resolve(coilResponse);
-    } catch (e) {
-      // if error return -1
-      console.log("[MB READ] Error Coil: " + e.message);
-      resolve(false);
-      return -1;
-    }
-  });
-};
-
-// open connection to a tcp line
-function initModbus(ip, port) {
-  return new Promise(async (resolve, reject) => {
-    await client.connectTCP(ip, { port: port });
-    resolve(true);
-  });
-}
 
 function startLedLoop(stop = undefined) {
   if (stop != undefined) {
@@ -256,13 +99,13 @@ function startLedLoop(stop = undefined) {
 
   const ledIntervall = setInterval(async () => {
     //Connected led x2
-    await setLed(2, enabled);
+    await ModbusHelper.setUserLed(2, enabled);
     //socket connected led x3
     if (wsConnection !== undefined && !wsStatus) {
       wsStatus = true;
-      await setLed(3, true);
+      await ModbusHelper.setUserLed(3, true);
     } else if (wsStatus && wsConnection === undefined) {
-      await setLed(3, false);
+      await ModbusHelper.setUserLed(3, false);
       wsStatus = false;
     }
 
@@ -270,10 +113,10 @@ function startLedLoop(stop = undefined) {
     var checkUpdate = await getBalenaRelease();
     var isUpdate = checkUpdate.update_pending;
     if (isUpdate && !updateStatus) {
-      await setLed(4, true);
+      await ModbusHelper.setUserLed(4, true);
       updateStatus = true;
     } else if (updateStatus && !isUpdate) {
-      await setLed(4, false);
+      await ModbusHelper.setUserLed(4, false);
       updateStatus = false;
     }
 
@@ -300,10 +143,6 @@ var relaisDemo = async (loops) => {
   });
 };
 
-function getBaseLog(x, y) {
-  return Math.log(y) / Math.log(x);
-}
-
 var setLcLevel = async (level) => {
   return new Promise(async (resolve, reject) => {
     var inputLevel = level;
@@ -311,37 +150,6 @@ var setLcLevel = async (level) => {
     if (inputLevel < 0) inputLevel = 0;
 
     setAnalogVoltage(inputLevel / 10);
-    resolve(true);
-  });
-};
-
-var setLed = async (led, status) => {
-  return new Promise(async (resolve, reject) => {
-    var ledByte = await readModbusRegister(DEVICE_ID, 20, 1);
-    var ledBits = getBitFromByte(ledByte);
-    if (debug) console.log("[SYSTEM] SET LED: " + led + " to: " + status);
-    if (debug) console.log("[SYSTEM] setLed: byte read: " + ledByte);
-    if (debug) console.log("[SYSTEM] setLed: bits read: " + ledBits);
-    switch (led) {
-      case 1:
-        ledBits = status ? ledBits.replaceAt(16 - led, "1") : ledBits.replaceAt(16 - led, "0");
-        break;
-      case 2:
-        ledBits = status ? ledBits.replaceAt(16 - led, "1") : ledBits.replaceAt(16 - led, "0");
-        break;
-      case 3:
-        ledBits = status ? ledBits.replaceAt(16 - led, "1") : ledBits.replaceAt(16 - led, "0");
-        break;
-      case 4:
-        ledBits = status ? ledBits.replaceAt(16 - led, "1") : ledBits.replaceAt(16 - led, "0");
-        break;
-      default:
-        console.log("[SYSTEM] setLed Error: led not found");
-    }
-    ledByte = parseInt(ledBits, 2);
-    if (debug) console.log("[SYSTEM] setLed: byte after change: " + ledByte);
-    if (debug) console.log("[SYSTEM] setLed: bits after change: " + ledBits);
-    await writeModbusRegister(DEVICE_ID, 20, [ledByte]); //Relay 2.1
     resolve(true);
   });
 };
@@ -383,11 +191,11 @@ var runTestLoop = async (start = undefined) => {
       if (dimValue < 1) dimValue = 0;
       if (dimValue > 10) dimValue = 10;
 
-      setAnalogVoltage(dimValue);
-      setAnalogVoltageExt(dimValue, 1);
-      setAnalogVoltageExt(dimValue, 2);
-      setAnalogVoltageExt(dimValue, 3);
-      setAnalogVoltageExt(dimValue, 4);
+      ModbusHelper.setAnalogPortMain(dimValue);
+      ModbusHelper.setAnalogPortExt(dimValue, 1);
+      ModbusHelper.setAnalogPortExt(dimValue, 2);
+      ModbusHelper.setAnalogPortExt(dimValue, 3);
+      ModbusHelper.setAnalogPortExt(dimValue, 4);
 
       if (counter < countLimit && countUp) {
         counter++;
@@ -573,12 +381,11 @@ var init = async () => {
     console.log("[SYSTEM] no response from balena container");
   }
 
-  //await initModbus(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
-  modbusHelper.init(DEVICE_ID);
-  modbusHelper.connect(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
+  ModbusHelper.init(DEVICE_ID, debug);
+  await ModbusHelper.connect(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
 
   for (let index = 1; index <= 4; index++) {
-    await setLed(index, false);
+    await ModbusHelper.setUserLed(index, false);
   }
 
   startLedLoop();
