@@ -81,13 +81,12 @@ function getBalenaRelease() {
   });
 }
 
-function startLedLoop(stop = undefined) {
+function runLedLoop(stop = undefined) {
   if (stop != undefined) {
     clearTimeout(ledIntervall);
     return;
   }
   var enabled = false;
-  var wsStatus = false;
   var wsStatus = false;
   var updateStatus = false;
 
@@ -118,7 +117,7 @@ function startLedLoop(stop = undefined) {
   }, 1000);
 }
 
-var runTestLoop = async (start = undefined) => {
+var runDimmerLoopTest = async (start = undefined) => {
   return new Promise(async (resolve, reject) => {
     if (start != undefined && start != true) {
       console.log("[DEBUG] dimmer test stop");
@@ -255,7 +254,7 @@ var wsMessageHandler = async (messageData) => {
       case "lcstart":
         var dimValue = 100;
         await runDimmerLoop(100, false);
-        await runTestLoop(false);
+        await runDimmerLoopTest(false);
         if (jsonData.hasOwnProperty("value")) {
           dimValue = jsonData.value;
         }
@@ -263,12 +262,12 @@ var wsMessageHandler = async (messageData) => {
         break;
       case "lcoff":
         await runDimmerLoop(100, false);
-        await runTestLoop(false);
+        await runDimmerLoopTest(false);
         UnipiHelper.setLcLevel(0);
         break;
       case "lcon":
         await runDimmerLoop(100, false);
-        await runTestLoop(false);
+        await runDimmerLoopTest(false);
         UnipiHelper.setLcLevel(90);
         break;
       case "setled":
@@ -325,7 +324,7 @@ server.listen(WS_PORT, () => {
 });
 
 var init = async () => {
-  console.log("[SYSTEM] init start");
+  console.log("[SYSTEM] ----- init start -----");
   if (process.argv.indexOf("-d") > -1) {
     console.log("[START] -d startup with debug");
     process.argv.forEach(function (val, index, array) {
@@ -353,20 +352,21 @@ var init = async () => {
   ModbusHelper.init(DEVICE_ID, debug);
   UnipiHelper.init(debug);
   await ModbusHelper.connect(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
+  await UnipiHelper.checkDeviceType();
 
   //Set LED loop for feedback on device
   for (let index = 1; index <= 4; index++) {
     await ModbusHelper.setUserLed(index, false);
   }
-  startLedLoop();
-
+  runLedLoop();
   //test loop for analog out test
   if (testLoop === "true") {
-    runTestLoop(true);
+    runDimmerLoopTest(true);
     //UnipiHelper.startRelaisDemo(2);
   }
 
-  console.log("[SYSTEM] init done");
+  console.log(await UnipiHelper.getDeviceType());
+  console.log("[SYSTEM] ----- init done -----");
 };
 
 init();

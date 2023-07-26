@@ -83,7 +83,7 @@ module.exports = {
       resolve(true);
     });
   },
-  abc: function (ip, port = 502) {
+  abc: async function (ip, port = 502) {
     return new Promise(async (resolve, reject) => {});
   },
   /**read register from modbus device
@@ -158,9 +158,9 @@ module.exports = {
     return new Promise(async (resolve, reject) => {
       var ledByte = await this.readRegister(20, 1);
       var ledBits = getBitFromByte(ledByte);
-      if (DEBUG) console.log("[SYSTEM] SET LED: " + led + " to: " + status);
-      if (DEBUG) console.log("[SYSTEM] setLed: byte read: " + ledByte);
-      if (DEBUG) console.log("[SYSTEM] setLed: bits read: " + ledBits);
+      if (DEBUG) console.log("[LED] SET LED: " + led + " to: " + status);
+      if (DEBUG) console.log("[LED] setLed: byte read: " + ledByte);
+      if (DEBUG) console.log("[LED] setLed: bits read: " + ledBits);
       switch (led) {
         case 1:
           ledBits = status ? ledBits.replaceAt(16 - led, "1") : ledBits.replaceAt(16 - led, "0");
@@ -175,11 +175,11 @@ module.exports = {
           ledBits = status ? ledBits.replaceAt(16 - led, "1") : ledBits.replaceAt(16 - led, "0");
           break;
         default:
-          console.log("[SYSTEM] setLed Error: led not found");
+          console.log("[LED] setLed Error: led not found");
       }
       ledByte = parseInt(ledBits, 2);
-      if (DEBUG) console.log("[SYSTEM] setLed: byte after change: " + ledByte);
-      if (DEBUG) console.log("[SYSTEM] setLed: bits after change: " + ledBits);
+      if (DEBUG) console.log("[LED] setLed: byte after change: " + ledByte);
+      if (DEBUG) console.log("[LED] setLed: bits after change: " + ledBits);
       await this.writeRegister(20, [ledByte]);
       resolve(true);
     });
@@ -188,7 +188,7 @@ module.exports = {
     return new Promise(async (resolve, reject) => {
       var floatTest = Float32ToBin(voltage); // 0011111111011001 1001100110011010
       //Write Voltage to AOR 1.1
-      if (DEBUG) console.log("[SYSTEM] Set Analog Out(1.1) to " + floatTest.float + "V");
+      if (DEBUG) console.log("[ANALOG] Set Analog Out(1.1) to " + floatTest.float + "V");
       await this.writeRegister(3000, [floatTest.int.low, floatTest.int.high]);
       resolve(true);
     });
@@ -207,7 +207,7 @@ module.exports = {
       if (setNumberVoltage > 4000) setNumberVoltage = 4000;
       setNumberVoltage = Math.round(setNumberVoltage);
 
-      if (DEBUG) console.log("[SYSTEM] Set Analog Ext Out(2." + port + ") to " + voltage + "V Number:" + setNumberVoltage);
+      if (DEBUG) console.log("[ANALOG] Set Analog Ext Out(2." + port + ") to " + voltage + "V Number:" + setNumberVoltage);
       await this.writeRegister(register, [setNumberVoltage]); //Relay 2.1
       resolve(true);
     });
