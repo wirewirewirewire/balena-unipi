@@ -2,6 +2,14 @@ const ModbusHelper = require("./modbushelper.js");
 
 var DEBUG = false;
 
+var inputParserTimer = [];
+
+var inputTriggerCount = {};
+/*{
+address: counter
+address = startaddress+index
+}*/
+
 /*
 Identify the device type via ports
 L203: I:16 O:14
@@ -49,6 +57,37 @@ var getBitFromByte = (byte, number = undefined) => {
   } else {
     return base2;
   }
+};
+
+var readCounter = async (startaddress, pinNames) => {
+  count = pinNames.length;
+  let returnData = {
+    update: false,
+    pinTriggerCount: 0,
+    pinTrigger: [],
+  };
+  return new Promise(async (resolve, reject) => {
+    var registerData = await ModbusHelper.readRegister(startaddress, count * 2);
+
+    for (let index = 0; index < count * 2; index = index + 2) {
+      var loopAddress = startaddress + index;
+      var lowpart = getBitFromByte(registerData[index]);
+      var highpart = getBitFromByte(registerData[index + 1]);
+      var value = parseInt(highpart + lowpart, 2);
+      if (DEBUG) console.log("[UNIPI] PinCheck Sense Addr: " + loopAddress + " Value: " + value + " Pin: " + pinNames[index / 2] + "");
+      if (inputTriggerCount.hasOwnProperty(loopAddress)) {
+        if (inputTriggerCount[loopAddress] != value) {
+          inputTriggerCount[loopAddress] = value;
+          returnData.update = true;
+          returnData.pinTriggerCount++;
+          returnData.pinTrigger.push(pinNames[index / 2]);
+        }
+      } else {
+        inputTriggerCount[startaddress + index] = value;
+      }
+    }
+    resolve(returnData);
+  });
 };
 
 var parse16BitNumber = (byte) => {
@@ -157,7 +196,34 @@ module.exports = {
   },
   getDeviceType: async function () {
     return new Promise(async (resolve, reject) => {
+      //TODO return also a pin map
       resolve(DeviceType);
+    });
+  },
+
+  attachInputCallback: async function (startaddress, nameArray, callback) {
+    //Read the device type and set to var
+    //DeviceType
+    if (DEBUG) console.log("[UNIPI] begin attach input callback start: " + startaddress + " count: " + nameArray.length);
+    return new Promise(async (resolve, reject) => {
+      //clear all timers of pin monitoring
+      for (let index = 0; index < inputParserTimer.length; index++) {
+        try {
+          clearInterval(inputParserTimer[index]);
+        } catch (e) {
+          console.log("[UNIPI] ERROR: clear interval(" + index + "): " + e.message);
+        }
+      }
+      //attach timer to pin monitoring
+      let timer = setInterval(async () => {
+        if (DEBUG) console.log("[UNIPI] --- PinCheck Loop ---");
+        var triggerPinData = await readCounter(startaddress, nameArray);
+        if (triggerPinData.update) {
+          callback(triggerPinData);
+        }
+        if (DEBUG) console.log(triggerPinData);
+      }, 100);
+      inputParserTimer.push(timer); //add timer to array to cancel later
     });
   },
 };

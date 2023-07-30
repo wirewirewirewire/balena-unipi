@@ -313,6 +313,7 @@ wsServer.on("connection", async function (connection) {
   const userId = v4();
   console.log(`[WS] Recieved a new connection.`);
   var balenaData = await getBalenaRelease();
+  //TODO send pin map on connect (all available inputs of device type)
   socketSendMessage({ message: "connected", data: { userId, loopInfo, balenaData } });
   // Store the new connection and handle messages
   clients[userId] = connection;
@@ -359,6 +360,16 @@ var init = async () => {
     await ModbusHelper.setUserLed(index, false);
   }
   runLedLoop();
+  UnipiHelper.attachInputCallback(119, ["2.9", "2.10", "2.11", "2.12"], async (data) => {
+    console.log("Trigger Callback");
+    console.log(data);
+    if (data.update) {
+      for (let index = 0; index < data.pinTrigger.length; index++) {
+        let element = data.pinTrigger[index];
+        socketSendMessage({ message: "pintrigger", data: { pinName: element } });
+      }
+    }
+  });
   //test loop for analog out test
   if (testLoop === "true") {
     runDimmerLoopTest(true);

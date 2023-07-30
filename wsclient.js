@@ -4,7 +4,7 @@ var fs = require("fs");
 const { WebSocket } = require("ws");
 
 //const UNIPI_IP = "192.168.225.143";
-const UNIPI_IP = "192.168.225.204";
+const UNIPI_IP = "192.168.100.27";
 const ws = new WebSocket("ws://" + UNIPI_IP + ":8007");
 
 let debug = false;
@@ -65,7 +65,7 @@ var init = async () => {
   if (process.argv.indexOf("-l") > -1) {
     let index = process.argv.indexOf("-f");
     let ledNo = process.argv[index + 1];
-    let ledValue = process.argv[index + 1];
+    let ledValue = process.argv[index + 2];
     console.log("[START] -l set led: " + ledNo + " to: " + ledValue);
     ws.send(JSON.stringify({ command: "setled", number: ledNo, value: ledNo }));
   }

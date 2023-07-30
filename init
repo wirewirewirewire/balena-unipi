@@ -5,6 +5,11 @@
 #sleep 1
 
 #nodemon server.js
+
+#sync the dev drive
+rm -r drive/* || true
+rsync -av -q ./* ./drive --exclude ./drive || true
+
 node server.js
 
 while true; do    

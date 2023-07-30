@@ -1,6 +1,6 @@
 version: "2"
 volumes:
-  workdir:
+  drive2:
 services:
   balena-unipi:
     build: ./balena-unipi
@@ -8,7 +8,7 @@ services:
     ports:
       - "8007:8007"
     volumes:
-      - "workdir:/usr/src/app/drive"
+      - "drive2:/usr/src/app/drive"
     privileged: true
     labels:
       io.resin.features.dbus: "1"

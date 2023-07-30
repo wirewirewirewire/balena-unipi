@@ -70,12 +70,19 @@ String.prototype.replaceAt = function (index, replacement) {
 };
 
 module.exports = {
-  /** set the modbus ID to use*/
+  /** set the modbus ID to use with unipi
+   * @param {number} deviceId
+   * @param {boolean} debug
+   */
   init: function (deviceId, debug = false) {
     DEVICE_ID = deviceId;
     DEBUG = debug;
   },
-  /**default port is 502*/
+  /**connect to the modbus tcp server on the device
+   * @param {string} ip the ip of the modbus device, default is local
+   * @param {number} port the modbus tcp server port, default is 502
+   * @return {Promise} true if connected
+   */
   connect: async function (ip, port = 502) {
     return new Promise(async (resolve, reject) => {
       await client.connectTCP(ip, { port });
@@ -89,7 +96,7 @@ module.exports = {
   /**read register from modbus device
    * @param {number} register
    * @param {number} byteLength
-   * @returns {array} register value as array
+   * @return {Promise} register value as array
    */
   readRegister: async function (register, byteLength) {
     return new Promise(async (resolve, reject) => {
@@ -98,6 +105,7 @@ module.exports = {
         await client.setID(DEVICE_ID);
         var registerData = await client.readHoldingRegisters(register, byteLength);
         resolve(registerData.data);
+        return;
       } catch (e) {
         // if error return -1
         console.log("[MB READ] Error Register Read: " + e.message);
@@ -106,6 +114,12 @@ module.exports = {
       }
     });
   },
+  /**read register from modbus device
+   * @param {number} register // start regsiter to read
+   * @param {number} byteLength // how many coils to read
+   * @return {Promise} register value as array (bools)
+   *
+   * */
   readCoil: async function (register, byteLength) {
     return new Promise(async (resolve, reject) => {
       if (DEBUG) console.log("[MB READ] ID: " + DEVICE_ID, " Coil: " + register, " Length: " + byteLength);
@@ -121,14 +135,19 @@ module.exports = {
       }
     });
   },
-  //data must be array of ints
+  /**write register to modbus device
+   * @param {number} register // start regsiter to read
+   * @param {number} dataArray // data bytes to write, must be array of ints
+   * @return {Promise} returns true if success
+   */
   writeRegister: async function (register, dataArray) {
     return new Promise(async (resolve, reject) => {
       if (DEBUG) console.log("[MB WRITE] ID: " + DEVICE_ID, " Register: " + register, " Data: " + dataArray);
       try {
         await client.setID(DEVICE_ID);
-        var registerWriteResolve = await client.writeRegisters(register, dataArray);
-        resolve(registerWriteResolve);
+        await client.writeRegisters(register, dataArray);
+        //TODO: check write success
+        resolve(true);
         return;
       } catch (e) {
         // if error return -1
@@ -138,14 +157,19 @@ module.exports = {
       }
     });
   },
-  //data must be array of ints
+  /*write data to modbus coils
+   * @param {number} register // start regsiter to write
+   * @param {number} data // data bits to write, must be array of bools
+   * @return {Promise} returns true if success
+   */
   writeCoil: async function (register, data) {
     return new Promise(async (resolve, reject) => {
       try {
         if (DEBUG) console.log("[MB WRITE] ID: " + DEVICE_ID, " Coil: " + register, " Data: " + data);
         await client.setID(DEVICE_ID);
-        var coilResponse = await client.writeCoils(register, data);
-        resolve(coilResponse);
+        await client.writeCoils(register, data);
+        //TODO: check write success
+        resolve(true);
       } catch (e) {
         // if error return -1
         console.log("[MB READ] Error Coil: " + e.message);
