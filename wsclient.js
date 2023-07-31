@@ -17,8 +17,23 @@ const ws = new WebSocket("ws://" + LISTEN_IP + ":8007");
 let debug = false;
 let wsOpen = false;
 
-ws.on("message", function message(data) {
-  console.log("Message: " + data);
+function IsJsonString(str) {
+  var result;
+  try {
+    result = JSON.parse(str);
+  } catch (e) {
+    return false;
+  }
+  return result;
+}
+
+ws.on("message", async function message(data) {
+  process.stdout.write("Message: ");
+  var stringJson = await IsJsonString(data);
+  console.log(util.inspect(stringJson, false, null, true /* enable colors */));
+
+  //console.log(util.inspect(data, { showHidden: false, depth: null, colors: true }));
+
   //ws.send(JSON.stringify({ command: "lcstart" }));
 });
 
