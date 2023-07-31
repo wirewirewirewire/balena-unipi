@@ -85,6 +85,7 @@ var readCounter = async (startaddress, pinNames) => {
       } else {
         inputTriggerCount[startaddress + index] = value;
       }
+      //console.log(inputTriggerCount);
     }
     resolve(returnData);
   });
@@ -200,11 +201,7 @@ module.exports = {
       resolve(DeviceType);
     });
   },
-
-  attachInputCallback: async function (startaddress, nameArray, callback) {
-    //Read the device type and set to var
-    //DeviceType
-    if (DEBUG) console.log("[UNIPI] begin attach input callback start: " + startaddress + " count: " + nameArray.length);
+  clearInputCallback: async function () {
     return new Promise(async (resolve, reject) => {
       //clear all timers of pin monitoring
       for (let index = 0; index < inputParserTimer.length; index++) {
@@ -214,6 +211,13 @@ module.exports = {
           console.log("[UNIPI] ERROR: clear interval(" + index + "): " + e.message);
         }
       }
+      resolve(DeviceType);
+    });
+  },
+
+  attachInputCallback: async function (startaddress, nameArray, callback) {
+    if (DEBUG) console.log("[UNIPI] begin attach input callback start: " + startaddress + " count: " + nameArray.length);
+    return new Promise(async (resolve, reject) => {
       //attach timer to pin monitoring
       let timer = setInterval(async () => {
         if (DEBUG) console.log("[UNIPI] --- PinCheck Loop ---");

@@ -360,16 +360,22 @@ var init = async () => {
     await ModbusHelper.setUserLed(index, false);
   }
   runLedLoop();
-  UnipiHelper.attachInputCallback(119, ["2.9", "2.10", "2.11", "2.12"], async (data) => {
-    console.log("Trigger Callback");
-    console.log(data);
-    if (data.update) {
-      for (let index = 0; index < data.pinTrigger.length; index++) {
-        let element = data.pinTrigger[index];
-        socketSendMessage({ message: "pintrigger", data: { pinName: element } });
+  //Read the device type and set to var
+  //DeviceType
+  UnipiHelper.attachInputCallback(
+    103,
+    ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15", "2.16"],
+    async (data) => {
+      console.log("Trigger Callback");
+      console.log(data);
+      if (data.update) {
+        for (let index = 0; index < data.pinTrigger.length; index++) {
+          let element = data.pinTrigger[index];
+          socketSendMessage({ message: "digitalin", data: { pinName: element } });
+        }
       }
     }
-  });
+  );
   //test loop for analog out test
   if (testLoop === "true") {
     runDimmerLoopTest(true);
