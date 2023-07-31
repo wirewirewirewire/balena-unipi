@@ -313,8 +313,8 @@ wsServer.on("connection", async function (connection) {
   const userId = v4();
   console.log(`[WS] Recieved a new connection.`);
   var balenaData = await getBalenaRelease();
-  //TODO send pin map on connect (all available inputs of device type)
-  socketSendMessage({ message: "connected", data: { userId, loopInfo, balenaData } });
+  let deviceType = await UnipiHelper.getDeviceType();
+  socketSendMessage({ message: "connected", data: { userId, loopInfo, balenaData, deviceType } });
   // Store the new connection and handle messages
   clients[userId] = connection;
   console.log(`[WS] ${userId} connected.`);

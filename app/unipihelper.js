@@ -22,6 +22,10 @@ var DeviceType = {
   M523: false,
   M303: false,
   M203: false,
+  capability: {
+    inputs: [],
+    loop: false,
+  },
 };
 
 function IsJsonString(str) {
@@ -169,24 +173,127 @@ module.exports = {
       if (portsInput === 16 && portsOutput === 14 && registerData2[0] !== undefined && registerData2[0] !== false && registerData2[0] !== 0) {
         if (DEBUG) console.log("[UNIPI] device type: unipi L203");
         DeviceType.L203 = true;
+        DeviceType.capability.inputs = [
+          "1.1",
+          "1.2",
+          "1.3",
+          "1.4",
+          "2.1",
+          "2.2",
+          "2.3",
+          "2.4",
+          "2.5",
+          "2.6",
+          "2.7",
+          "2.8",
+          "2.9",
+          "2.10",
+          "2.11",
+          "2.12",
+          "2.13",
+          "2.14",
+          "2.15",
+          "2.16",
+          "3.1",
+          "3.2",
+          "3.3",
+          "3.4",
+          "3.5",
+          "3.6",
+          "3.7",
+          "3.8",
+          "3.9",
+          "3.10",
+          "3.11",
+          "3.12",
+          "3.13",
+          "3.14",
+          "3.15",
+          "3.16",
+        ];
+        DeviceType.capability.loop = false;
         resolve(true);
         return;
       }
       if (portsInput === 4 && portsOutput === 5) {
         if (DEBUG) console.log("[UNIPI] device type: unipi M523");
         DeviceType.M523 = true;
+        DeviceType.capability.inputs = ["1.1", "1.2", "1.3", "1.4", "2.1", "2.2", "2.3", "2.4"];
+        DeviceType.capability.loop = true;
         resolve(true);
         return;
       }
       if (portsInput === 30 && portsOutput === 0) {
         if (DEBUG) console.log("[UNIPI] device type: unipi M303");
         DeviceType.M303 = true;
+        DeviceType.capability.inputs = [
+          "1.1",
+          "1.2",
+          "1.3",
+          "1.4",
+          "2.1",
+          "2.2",
+          "2.3",
+          "2.4",
+          "2.5",
+          "2.6",
+          "2.7",
+          "2.8",
+          "2.9",
+          "2.10",
+          "2.11",
+          "2.12",
+          "2.13",
+          "2.14",
+          "2.15",
+          "2.16",
+          "2.17",
+          "2.18",
+          "2.19",
+          "2.20",
+          "2.21",
+          "2.22",
+          "2.23",
+          "2.24",
+          "2.25",
+          "2.26",
+          "2.27",
+          "2.28",
+          "2.29",
+          "2.30",
+        ];
+        DeviceType.capability.loop = false;
+
         resolve(true);
         return;
       }
       if (portsInput === 16 && portsOutput === 14 && registerData2[0] === false) {
         if (DEBUG) console.log("[UNIPI] device type: unipi M203");
         DeviceType.M203 = true;
+        DeviceType.capability.inputs = [
+          "1.1",
+          "1.2",
+          "1.3",
+          "1.4",
+          "2.1",
+          "2.2",
+          "2.3",
+          "2.4",
+          "2.5",
+          "2.6",
+          "2.7",
+          "2.8",
+          "2.9",
+          "2.10",
+          "2.11",
+          "2.12",
+          "2.13",
+          "2.14",
+          "2.15",
+          "2.16",
+        ];
+        DeviceType.capability.loop = false;
+
         resolve(true);
         return;
       }
@@ -211,7 +318,7 @@ module.exports = {
           console.log("[UNIPI] ERROR: clear interval(" + index + "): " + e.message);
         }
       }
-      resolve(DeviceType);
+      resolve(true);
     });
   },
 
