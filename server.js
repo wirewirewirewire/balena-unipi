@@ -81,11 +81,16 @@ function getBalenaRelease() {
   });
 }
 
-function runLedLoop(stop = undefined) {
+async function runLedLoop(stop = undefined) {
   if (stop != undefined) {
     clearTimeout(ledIntervall);
     return;
   }
+  //Set LED loop for feedback on device
+  for (let index = 1; index <= 4; index++) {
+    await ModbusHelper.setUserLed(index, false);
+  }
+
   var enabled = false;
   var wsStatus = false;
   var updateStatus = false;
@@ -245,6 +250,138 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
   });
 };
 
+var initPins = async (unipitype) => {
+  return new Promise(async (resolve, reject) => {
+    if (unipitype.L203) {
+      UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
+        if (data.update) {
+          for (let index = 0; index < data.pinTrigger.length; index++) {
+            let element = data.pinTrigger[index];
+            socketSendMessage({ message: "digitalin", data: { pinName: element } });
+          }
+        }
+      });
+      UnipiHelper.attachInputCallback(
+        103,
+        ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15", "2.16"],
+        async (data) => {
+          if (data.update) {
+            for (let index = 0; index < data.pinTrigger.length; index++) {
+              let element = data.pinTrigger[index];
+              socketSendMessage({ message: "digitalin", data: { pinName: element } });
+            }
+          }
+        }
+      );
+      UnipiHelper.attachInputCallback(
+        203,
+        ["3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15", "3.16"],
+        async (data) => {
+          if (data.update) {
+            for (let index = 0; index < data.pinTrigger.length; index++) {
+              let element = data.pinTrigger[index];
+              socketSendMessage({ message: "digitalin", data: { pinName: element } });
+            }
+          }
+        }
+      );
+    }
+    if (unipitype.M523) {
+      UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
+        if (data.update) {
+          for (let index = 0; index < data.pinTrigger.length; index++) {
+            let element = data.pinTrigger[index];
+            socketSendMessage({ message: "digitalin", data: { pinName: element } });
+          }
+        }
+      });
+      UnipiHelper.attachInputCallback(116, ["2.1", "2.2", "2.3", "2.4"], async (data) => {
+        if (data.update) {
+          for (let index = 0; index < data.pinTrigger.length; index++) {
+            let element = data.pinTrigger[index];
+            socketSendMessage({ message: "digitalin", data: { pinName: element } });
+          }
+        }
+      });
+    }
+    if (unipitype.M303) {
+      UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
+        if (data.update) {
+          for (let index = 0; index < data.pinTrigger.length; index++) {
+            let element = data.pinTrigger[index];
+            socketSendMessage({ message: "digitalin", data: { pinName: element } });
+          }
+        }
+      });
+      UnipiHelper.attachInputCallback(
+        103,
+        [
+          "2.1",
+          "2.2",
+          "2.3",
+          "2.4",
+          "2.5",
+          "2.6",
+          "2.7",
+          "2.8",
+          "2.9",
+          "2.10",
+          "2.11",
+          "2.12",
+          "2.13",
+          "2.14",
+          "2.15",
+          "2.16",
+          "2.17",
+          "2.18",
+          "2.19",
+          "2.20",
+          "2.21",
+          "2.22",
+          "2.23",
+          "2.24",
+          "2.25",
+          "2.26",
+          "2.27",
+          "2.28",
+          "2.29",
+          "2.30",
+        ],
+        async (data) => {
+          if (data.update) {
+            for (let index = 0; index < data.pinTrigger.length; index++) {
+              let element = data.pinTrigger[index];
+              socketSendMessage({ message: "digitalin", data: { pinName: element } });
+            }
+          }
+        }
+      );
+    }
+    if (unipitype.M203) {
+      UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
+        if (data.update) {
+          for (let index = 0; index < data.pinTrigger.length; index++) {
+            let element = data.pinTrigger[index];
+            socketSendMessage({ message: "digitalin", data: { pinName: element } });
+          }
+        }
+      });
+      UnipiHelper.attachInputCallback(
+        103,
+        ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15", "2.16"],
+        async (data) => {
+          if (data.update) {
+            for (let index = 0; index < data.pinTrigger.length; index++) {
+              let element = data.pinTrigger[index];
+              socketSendMessage({ message: "digitalin", data: { pinName: element } });
+            }
+          }
+        }
+      );
+    }
+  });
+};
+
 var wsMessageHandler = async (messageData) => {
   var jsonData = await IsJsonString(messageData);
 
@@ -354,33 +491,16 @@ var init = async () => {
   UnipiHelper.init(debug);
   await ModbusHelper.connect(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
   await UnipiHelper.checkDeviceType();
+  let deviceType = await UnipiHelper.getDeviceType();
+  await initPins(deviceType);
 
-  //Set LED loop for feedback on device
-  for (let index = 1; index <= 4; index++) {
-    await ModbusHelper.setUserLed(index, false);
-  }
-  runLedLoop();
-  //Read the device type and set to var
-  //DeviceType
-  UnipiHelper.attachInputCallback(
-    103,
-    ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15", "2.16"],
-    async (data) => {
-      console.log("Trigger Callback");
-      console.log(data);
-      if (data.update) {
-        for (let index = 0; index < data.pinTrigger.length; index++) {
-          let element = data.pinTrigger[index];
-          socketSendMessage({ message: "digitalin", data: { pinName: element } });
-        }
-      }
-    }
-  );
   //test loop for analog out test
   if (testLoop === "true") {
     runDimmerLoopTest(true);
     //UnipiHelper.startRelaisDemo(2);
   }
+
+  await runLedLoop();
 
   console.log(await UnipiHelper.getDeviceType());
   console.log("[SYSTEM] ----- init done -----");
