@@ -108,7 +108,7 @@ module.exports = {
         return;
       } catch (e) {
         // if error return -1
-        console.log("[MB READ] Error Register Read: " + e.message);
+        if (DEBUG) console.log("[MB READ] Error Register Read: " + e.message);
         resolve(false);
         return -1;
       }
@@ -129,7 +129,7 @@ module.exports = {
         resolve(registerData.data);
       } catch (e) {
         // if error return -1
-        console.log("[MB READ] Error Coil: " + e.message);
+        if (DEBUG) console.log("[MB READ] Error Coil: " + e.message);
         resolve(false);
         return -1;
       }
@@ -151,7 +151,7 @@ module.exports = {
         return;
       } catch (e) {
         // if error return -1
-        console.log("[MB READ] Error Register Write: " + e.message);
+        if (DEBUG) console.log("[MB READ] Error Register Write: " + e.message);
         resolve(false);
         return;
       }
@@ -172,7 +172,7 @@ module.exports = {
         resolve(true);
       } catch (e) {
         // if error return -1
-        console.log("[MB READ] Error Coil: " + e.message);
+        if (DEBUG) console.log("[MB READ] Error Coil: " + e.message);
         resolve(false);
         return -1;
       }

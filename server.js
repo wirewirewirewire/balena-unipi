@@ -42,6 +42,16 @@ function getBaseLog(x, y) {
   return Math.log(y) / Math.log(x);
 }
 
+function pingSocket() {
+  return new Promise(async (resolve, reject) => {
+    if (wsConnection === undefined || !wsConnection || wsConnection.readyState !== 1) {
+      resolve(false);
+      return;
+    }
+    resolve(true);
+  });
+}
+
 function IsJsonString(str) {
   return new Promise(async (resolve, reject) => {
     var result;
@@ -99,21 +109,19 @@ async function runLedLoop(stop = undefined) {
     //Connected led x2
     await ModbusHelper.setUserLed(2, enabled);
     //socket connected led x3
-    if (wsConnection !== undefined && !wsStatus) {
+    if (!wsStatus && (await pingSocket())) {
       wsStatus = true;
       await ModbusHelper.setUserLed(3, true);
-    } else if (wsStatus && wsConnection === undefined) {
+    } else if (wsStatus && !(await pingSocket())) {
       await ModbusHelper.setUserLed(3, false);
       wsStatus = false;
     }
 
     //Check if balena update is running (led X4)
-    var checkUpdate = await getBalenaRelease();
-    var isUpdate = checkUpdate.update_pending;
-    if (isUpdate && !updateStatus) {
+    if (!updateStatus && (await getBalenaRelease().update_pending)) {
       await ModbusHelper.setUserLed(4, true);
       updateStatus = true;
-    } else if (updateStatus && !isUpdate) {
+    } else if (updateStatus && !(await getBalenaRelease().update_pending)) {
       await ModbusHelper.setUserLed(4, false);
       updateStatus = false;
     }
@@ -214,12 +222,13 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
     var dimValue = 0;
     loopInfo.running = true;
     var dimmerLoopTimeMs = (countLimit - counterStart) * time;
+    var deviceType = UnipiHelper.getDeviceType();
     loopInfo.loopTimeMs = dimmerLoopTimeMs;
 
-    console.log("[SYSTEM] dimmer loop time: " + dimmerLoopTimeMs + "ms");
+    console.log("[SYSTEM] dimmer loop start - time: " + dimmerLoopTimeMs + "ms");
 
     dimmerLoopDebugTimer = setInterval(async () => {
-      console.log("[SYSTEM] Dimmer Loop: " + counter + " Dim Value: " + dimValue);
+      if (debug) console.log("[SYSTEM] Dimmer Loop: " + counter + " Dim Value: " + dimValue);
     }, 500);
 
     dimmerLoopTimer = setInterval(async () => {
@@ -228,8 +237,13 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
       dimValue = Math.round(dimValue * 1000) / 1000;
       if (dimValue < 1) dimValue = 0;
       if (dimValue > 10) dimValue = 10;
+      let dimValueReverse = 10 - dimValue;
 
       ModbusHelper.setAnalogPortMain(dimValue);
+
+      if (deviceType.M523) {
+        ModbusHelper.setAnalogPortExt(dimValueReverse, 1); // set only if M523, else many errors on bus
+      }
 
       if (counter < countLimit && countUp) {
         counter++;
@@ -250,9 +264,10 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
   });
 };
 
-var initPins = async (unipitype) => {
+var initPins = async () => {
   return new Promise(async (resolve, reject) => {
-    if (unipitype.L203) {
+    let deviceType = await UnipiHelper.getDeviceType();
+    if (deviceType.L203) {
       UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
         if (data.update) {
           for (let index = 0; index < data.pinTrigger.length; index++) {
@@ -285,8 +300,10 @@ var initPins = async (unipitype) => {
           }
         }
       );
+      resolve(true);
+      return;
     }
-    if (unipitype.M523) {
+    if (deviceType.M523) {
       UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
         if (data.update) {
           for (let index = 0; index < data.pinTrigger.length; index++) {
@@ -303,8 +320,10 @@ var initPins = async (unipitype) => {
           }
         }
       });
+      resolve(true);
+      return;
     }
-    if (unipitype.M303) {
+    if (deviceType.M303) {
       UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
         if (data.update) {
           for (let index = 0; index < data.pinTrigger.length; index++) {
@@ -356,8 +375,10 @@ var initPins = async (unipitype) => {
           }
         }
       );
+      resolve(true);
+      return;
     }
-    if (unipitype.M203) {
+    if (deviceType.M203) {
       UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
         if (data.update) {
           for (let index = 0; index < data.pinTrigger.length; index++) {
@@ -378,7 +399,11 @@ var initPins = async (unipitype) => {
           }
         }
       );
+      resolve(true);
+      return;
     }
+    resolve(false);
+    return;
   });
 };
 
@@ -475,13 +500,7 @@ var init = async () => {
   var appVersion = await getBalenaRelease();
   console.log(appVersion);
   if (appVersion !== false) {
-    if (appVersion !== undefined && appVersion.commit !== undefined) {
-      runtimeData.appVersion = appVersion.commit.slice(0, 7);
-    }
-    if (appVersion !== undefined && appVersion.ip_address !== undefined) {
-      runtimeData.ip = appVersion.ip_address;
-    }
-    console.log(runtimeData);
+    console.log(appVersion);
   } else {
     console.log("[SYSTEM] no response from balena container");
   }
@@ -491,8 +510,7 @@ var init = async () => {
   UnipiHelper.init(debug);
   await ModbusHelper.connect(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
   await UnipiHelper.checkDeviceType();
-  let deviceType = await UnipiHelper.getDeviceType();
-  await initPins(deviceType);
+  await initPins();
 
   //test loop for analog out test
   if (testLoop === "true") {
@@ -505,7 +523,6 @@ var init = async () => {
   console.log(await UnipiHelper.getDeviceType());
   console.log("[SYSTEM] ----- init done -----");
 };
-
 init();
 
 process.on("SIGINT", (_) => {
