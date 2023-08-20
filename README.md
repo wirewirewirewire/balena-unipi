@@ -24,15 +24,40 @@ There are some commands that can be send from the client to the unipi via websoc
 ##### Digital In: new pin press
 
 this message gets send from unipi via socket
-`{"message":"digitalin","data":{"pinName":<pinname>}}`
+
+```json
+{
+  "message":"digitalin",
+  "data": {
+    "pinName":"<pinname>"
+  }
+}
+```
 `<pinname>` is the name of the pressed pin like the layout of unipi. for example `2.11`
 
-##### Loop Control: start loop
+##### Loop Control: start loop 🔁
 
 start the loop with this command via socket
-`{ command: "lcstart", value: <fadevalue> }`
+
+```json
+{
+  "command": "lcstart",
+  "value": "<fadevalue>"
+}
+```
+
 `<fadevalue>` is the pause in ms between every dim steps. The Loop is 1000 steps per direction
-Exampme: `{ command: "lcstart", value: 100 }` Time for dim up is 100 Seconds, Dim Down also 100 Seconds (100ms\*1000=100s)
+
+Example: 
+
+```json
+{
+  "command": "lcstart",
+  "value": 100
+}
+```
+
+Time for dim up is 100 Seconds, Dim Down also 100 Seconds (100ms\*1000=100s)
 
 ##### Loop Control: stop loop
 
@@ -42,6 +67,17 @@ stops the loop timer and turns off the voltage on the LC Glass (gets non transpa
 ##### Loop Response: Running Feedback ping
 
 If the loop is running there is send a command every time the loop reaches the fully up point or fully down point
-`{"message":"dimmerloop","data":{"loopRunning":true,"loopDirection":"up","loopTimeMs":100000}}`
+
+```json
+{
+  "message": "dimmerloop",
+  "data":{
+    "loopRunning": true,
+    "loopDirection": "up",
+    "loopTimeMs": 100000
+  }
+}
+```
+
 `loopDirection: STRING` the direction the loop is going next. Can be "up" or "down"
 `loopTimeMs: NUMBER` the time it will take till the loop reaches the next peak
