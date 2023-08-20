@@ -4,9 +4,9 @@
 
 There are 4 User LEDs on the device labeled X1 to X4. They give different feedback for debug purpose.
 
-X2: Blinks if the device computer is running and working
-X3: On if Socket connected, else off
-X4: On if update of code is running, else off
+- `X2` Blinks if the device computer is running and working
+- `X3` On if Socket connected, else off
+- `X4` On if update of code is running, else off
 
 ## Test Socket
 
@@ -19,7 +19,7 @@ Use input params on start
 
 ## Socket
 
-There are some commands that can be send from the client to the unipi via websocket. The Port of the Device is 8007. The IP can be checked in the startup log or in balena dashboard.
+There are some commands that can be send from the client to the unipi via websocket. The Port of the Device is 8007. The IP can be checked in the startup log or in [balena dashboard](https://dashboard.balena-cloud.com/login).
 
 ##### Digital In: new pin press
 
