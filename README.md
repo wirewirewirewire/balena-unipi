@@ -27,12 +27,13 @@ this message gets send from unipi via socket
 
 ```json
 {
-  "message":"digitalin",
+  "message": "digitalin",
   "data": {
-    "pinName":"<pinname>"
+    "pinName": "<pinname>"
   }
 }
 ```
+
 `<pinname>` is the name of the pressed pin like the layout of unipi. for example `2.11`
 
 ##### Loop Control: start loop 🔁
@@ -48,7 +49,7 @@ start the loop with this command via socket
 
 `<fadevalue>` is the pause in ms between every dim steps. The Loop is 1000 steps per direction
 
-Example: 
+Example:
 
 ```json
 {
@@ -71,7 +72,7 @@ If the loop is running there is send a command every time the loop reaches the f
 ```json
 {
   "message": "dimmerloop",
-  "data":{
+  "data": {
     "loopRunning": true,
     "loopDirection": "up",
     "loopTimeMs": 100000
@@ -79,5 +80,5 @@ If the loop is running there is send a command every time the loop reaches the f
 }
 ```
 
-`loopDirection: STRING` the direction the loop is going next. Can be "up" or "down"
+`loopDirection: STRING` the direction the loop is going next. Can be "up" or "down". UP: 0% transparency and opening, DOWN: 100% and closing
 `loopTimeMs: NUMBER` the time it will take till the loop reaches the next peak
