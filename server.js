@@ -498,7 +498,6 @@ var init = async () => {
 
   //get some data from balena
   var appVersion = await getBalenaRelease();
-  console.log(appVersion);
   if (appVersion !== false) {
     console.log(appVersion);
   } else {

@@ -166,7 +166,8 @@ module.exports = {
 
       //console.log(parseData);
 
-      //console.log(registerData2[0]);
+      console.log("Input Ports: " + portsInput + " Output Ports: " + portsOutput);
+      console.log("Register 2: " + registerData2[0]);
       //console.log(parseData.bytehigh);
       //console.log(parseData.bytelow);*
 
@@ -267,7 +268,7 @@ module.exports = {
         resolve(true);
         return;
       }
-      if (portsInput === 16 && portsOutput === 14 && registerData2[0] === false) {
+      if (portsInput === 16 && portsOutput === 14 && (registerData2[0] === false || registerData2[0] == undefined)) {
         if (DEBUG) console.log("[UNIPI] device type: unipi M203");
         DeviceType.M203 = true;
         DeviceType.capability.inputs = [
