@@ -63,7 +63,24 @@ var getBitFromByte = (byte, number = undefined) => {
   }
 };
 
-var readCounter = async (startaddress, pinNames) => {
+function findFirstDifferencePosition(str1, str2) {
+  const minLength = Math.min(str1.length, str2.length);
+
+  for (let i = 0; i < minLength; i++) {
+    if (str1[i] !== str2[i]) {
+      return i;
+    }
+  }
+
+  // If one string is longer than the other, return the position where they start to differ
+  if (str1.length !== str2.length) {
+    return minLength;
+  }
+
+  return -1; // No differences found
+}
+
+var readCounter = async (startaddress, analogaddress, pinNames) => {
   count = pinNames.length;
   let returnData = {
     update: false,
@@ -72,6 +89,32 @@ var readCounter = async (startaddress, pinNames) => {
   };
   return new Promise(async (resolve, reject) => {
     var registerData = await ModbusHelper.readRegister(startaddress, count * 2);
+    var registerDataPins = await ModbusHelper.readRegister(analogaddress, 1);
+    registerDataPins = getBitFromByte(registerDataPins[0]);
+
+    if (inputTriggerCount.hasOwnProperty(analogaddress)) {
+      if (inputTriggerCount[analogaddress] != registerDataPins && registerDataPins != undefined) {
+        if (inputTriggerCount[analogaddress] == undefined) inputTriggerCount[analogaddress] = registerDataPins;
+        let savedString = inputTriggerCount[analogaddress];
+        console.log("Saved String: " + savedString);
+        console.log("New String: " + registerDataPins);
+
+        let difference = findFirstDifferencePosition(savedString, registerDataPins);
+        inputTriggerCount[analogaddress] = registerDataPins;
+        pinCount = count - difference;
+        //console.log("[UNIPI] Input Trigger DIF: ");
+        //console.log(pinCount);
+        //console.log("Pin: " + pinNames[pinCount - 1]);
+        returnData.update = true;
+        returnData.pinTriggerCount++;
+        returnData.pinTrigger.push(pinNames[pinCount - 1]);
+        console.log("[UNIPI] Return Press Pin:");
+        console.log(returnData);
+        //console.log(inputTriggerCount);
+      }
+    } else {
+      inputTriggerCount[analogaddress] = registerDataPins;
+    }
 
     for (let index = 0; index < count * 2; index = index + 2) {
       var loopAddress = startaddress + index;
@@ -83,8 +126,12 @@ var readCounter = async (startaddress, pinNames) => {
         if (inputTriggerCount[loopAddress] != value) {
           inputTriggerCount[loopAddress] = value;
           returnData.update = true;
-          returnData.pinTriggerCount++;
-          returnData.pinTrigger.push(pinNames[index / 2]);
+          if (!returnData.pinTrigger.includes(pinNames[index / 2])) {
+            returnData.pinTriggerCount++;
+            returnData.pinTrigger.push(pinNames[index / 2]);
+            console.log("[UNIPI] Return Press Counter:");
+            console.log(returnData);
+          }
         }
       } else {
         inputTriggerCount[startaddress + index] = value;
@@ -323,18 +370,18 @@ module.exports = {
     });
   },
 
-  attachInputCallback: async function (startaddress, nameArray, callback) {
+  attachInputCallback: async function (startaddress, analogaddress, nameArray, callback) {
     if (DEBUG) console.log("[UNIPI] begin attach input callback start: " + startaddress + " count: " + nameArray.length);
     return new Promise(async (resolve, reject) => {
       //attach timer to pin monitoring
       let timer = setInterval(async () => {
         if (DEBUG) console.log("[UNIPI] --- PinCheck Loop ---");
-        var triggerPinData = await readCounter(startaddress, nameArray);
+        var triggerPinData = await readCounter(startaddress, analogaddress, nameArray);
         if (triggerPinData.update) {
           callback(triggerPinData);
         }
         if (DEBUG) console.log(triggerPinData);
-      }, 100);
+      }, 1000);
       inputParserTimer.push(timer); //add timer to array to cancel later
     });
   },

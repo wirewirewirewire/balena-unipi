@@ -268,7 +268,7 @@ var initPins = async () => {
   return new Promise(async (resolve, reject) => {
     let deviceType = await UnipiHelper.getDeviceType();
     if (deviceType.L203) {
-      UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
+      UnipiHelper.attachInputCallback(8, 0, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
         if (data.update) {
           for (let index = 0; index < data.pinTrigger.length; index++) {
             let element = data.pinTrigger[index];
@@ -278,6 +278,7 @@ var initPins = async () => {
       });
       UnipiHelper.attachInputCallback(
         103,
+        100,
         ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15", "2.16"],
         async (data) => {
           if (data.update) {
@@ -290,6 +291,7 @@ var initPins = async () => {
       );
       UnipiHelper.attachInputCallback(
         203,
+        200,
         ["3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15", "3.16"],
         async (data) => {
           if (data.update) {
@@ -304,7 +306,7 @@ var initPins = async () => {
       return;
     }
     if (deviceType.M523) {
-      UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
+      UnipiHelper.attachInputCallback(8, 0, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
         if (data.update) {
           for (let index = 0; index < data.pinTrigger.length; index++) {
             let element = data.pinTrigger[index];
@@ -312,7 +314,7 @@ var initPins = async () => {
           }
         }
       });
-      UnipiHelper.attachInputCallback(116, ["2.1", "2.2", "2.3", "2.4"], async (data) => {
+      UnipiHelper.attachInputCallback(116, 100, ["2.1", "2.2", "2.3", "2.4"], async (data) => {
         if (data.update) {
           for (let index = 0; index < data.pinTrigger.length; index++) {
             let element = data.pinTrigger[index];
@@ -324,7 +326,7 @@ var initPins = async () => {
       return;
     }
     if (deviceType.M303) {
-      UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
+      UnipiHelper.attachInputCallback(8, 0, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
         if (data.update) {
           for (let index = 0; index < data.pinTrigger.length; index++) {
             let element = data.pinTrigger[index];
@@ -334,6 +336,7 @@ var initPins = async () => {
       });
       UnipiHelper.attachInputCallback(
         103,
+        100,
         [
           "2.1",
           "2.2",
@@ -379,7 +382,7 @@ var initPins = async () => {
       return;
     }
     if (deviceType.M203) {
-      UnipiHelper.attachInputCallback(8, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
+      UnipiHelper.attachInputCallback(8, 0, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
         if (data.update) {
           for (let index = 0; index < data.pinTrigger.length; index++) {
             let element = data.pinTrigger[index];
@@ -389,6 +392,7 @@ var initPins = async () => {
       });
       UnipiHelper.attachInputCallback(
         103,
+        100,
         ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15", "2.16"],
         async (data) => {
           if (data.update) {
