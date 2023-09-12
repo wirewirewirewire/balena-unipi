@@ -115,6 +115,8 @@ var readCounter = async (startaddress, analogaddress, pinNames) => {
     } else {
       inputTriggerCount[analogaddress] = registerDataPins;
     }
+    resolve(returnData);
+    return;
 
     for (let index = 0; index < count * 2; index = index + 2) {
       var loopAddress = startaddress + index;
@@ -131,6 +133,7 @@ var readCounter = async (startaddress, analogaddress, pinNames) => {
             returnData.pinTrigger.push(pinNames[index / 2]);
             console.log("[UNIPI] Return Press Counter:");
             console.log(returnData);
+            console.log(value);
           }
         }
       } else {
