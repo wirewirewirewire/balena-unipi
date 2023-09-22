@@ -20,6 +20,8 @@ const UNIPI_MODBUS_PORT = 502;
 const WS_PORT = 8007; //Socket
 
 const testLoop = process.env.TEST || "false";
+const MINIMALDIM = process.env.MINIMALDIM || 0;
+
 var debug = process.env.DEBUG == "true" ? true : false;
 const clients = {};
 var wsConnection;
@@ -207,6 +209,8 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
       dimmerLoopDebugTimer = undefined;
       loopInfo.running = false;
       loopInfo.loopTimeMs = 0;
+      await ModbusHelper.setAnalogPortExt(0, 1);
+      await ModbusHelper.setAnalogPortMain(0);
       resolve(true);
       return;
     }
@@ -237,12 +241,12 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
       dimValue = Math.round(dimValue * 1000) / 1000;
       if (dimValue < 1) dimValue = 0;
       if (dimValue > 10) dimValue = 10;
-      let dimValueReverse = 10 - dimValue;
 
       ModbusHelper.setAnalogPortMain(dimValue);
 
       if (deviceType.M523) {
-        ModbusHelper.setAnalogPortExt(dimValueReverse, 1); // set only if M523, else many errors on bus
+        if (dimValue < MINIMALDIM) dimValue = MINIMALDIM;
+        ModbusHelper.setAnalogPortExt(dimValue, 1); // set only if M523, else many errors on bus
       }
 
       if (counter < countLimit && countUp) {
@@ -436,6 +440,15 @@ var wsMessageHandler = async (messageData) => {
         await runDimmerLoopTest(false);
         UnipiHelper.setLcLevel(90);
         break;
+      case "lcset":
+        await runDimmerLoop(100, false);
+        await runDimmerLoopTest(false);
+        let dimValue = 100;
+        if (jsonData.hasOwnProperty("value")) {
+          dimValue = jsonData.value;
+          UnipiHelper.setLcLevel(dimValue);
+        }
+        break;
       case "setled":
         var ledNo = 0;
         var ledStatus = false;
@@ -514,16 +527,17 @@ var init = async () => {
   await ModbusHelper.connect(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
   await UnipiHelper.checkDeviceType();
   await initPins();
+  await runDimmerLoop(100, false);
 
   //test loop for analog out test
   if (testLoop === "true") {
     runDimmerLoopTest(true);
     //UnipiHelper.startRelaisDemo(2);
   }
-
   await runLedLoop();
 
   console.log(await UnipiHelper.getDeviceType());
+  console.log("[SYSTEM] MINDIM: " + MINIMALDIM);
   console.log("[SYSTEM] ----- init done -----");
 };
 init();

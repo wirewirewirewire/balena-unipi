@@ -182,6 +182,8 @@ module.exports = {
       if (inputLevel < 0) inputLevel = 0;
 
       await ModbusHelper.setAnalogPortMain(inputLevel);
+      await ModbusHelper.setAnalogPortExt(10 - inputLevel, 1);
+
       resolve(true);
     });
   },
