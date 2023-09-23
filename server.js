@@ -226,7 +226,7 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
     var dimValue = 0;
     loopInfo.running = true;
     var dimmerLoopTimeMs = (countLimit - counterStart) * time;
-    var deviceType = UnipiHelper.getDeviceType();
+    var deviceType = await UnipiHelper.getDeviceType();
     loopInfo.loopTimeMs = dimmerLoopTimeMs;
 
     console.log("[SYSTEM] dimmer loop start - time: " + dimmerLoopTimeMs + "ms");
@@ -443,7 +443,7 @@ var wsMessageHandler = async (messageData) => {
       case "lcset":
         await runDimmerLoop(100, false);
         await runDimmerLoopTest(false);
-        let dimValue = 100;
+        var dimValue = 100;
         if (jsonData.hasOwnProperty("value")) {
           dimValue = jsonData.value;
           UnipiHelper.setLcLevel(dimValue);
@@ -529,15 +529,17 @@ var init = async () => {
   await initPins();
   await runDimmerLoop(100, false);
 
+  await ModbusHelper.setAnalogPortExt(2, 1);
+  await ModbusHelper.setAnalogPortMain(0);
   //test loop for analog out test
-  if (testLoop === "true") {
-    runDimmerLoopTest(true);
-    //UnipiHelper.startRelaisDemo(2);
-  }
   await runLedLoop();
 
   console.log(await UnipiHelper.getDeviceType());
   console.log("[SYSTEM] MINDIM: " + MINIMALDIM);
+
+  if (testLoop === "true") {
+    await runDimmerLoop(20);
+  }
   console.log("[SYSTEM] ----- init done -----");
 };
 init();

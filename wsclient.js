@@ -84,6 +84,13 @@ var init = async () => {
     ws.send(JSON.stringify({ command: "lcstart", value: fadeValue }));
   }
 
+  if (process.argv.indexOf("-s") > -1) {
+    let index = process.argv.indexOf("-f");
+    let dimValue = process.argv[index + 1];
+    console.log("[START] -s set the dim to: " + dimValue);
+    ws.send(JSON.stringify({ command: "lcset", value: dimValue }));
+  }
+
   if (process.argv.indexOf("-i") > -1) {
     let index = process.argv.indexOf("-i");
     let ledNo = process.argv[index + 1];
