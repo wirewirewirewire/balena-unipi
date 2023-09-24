@@ -219,9 +219,9 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
       resolve(false);
       return;
     }
-    var counterStart = 400;
+    var counterStart = 0;
     var countUp = false;
-    var countLimit = 1400;
+    var countLimit = 1600;
     var counter = counterStart;
     var dimValue = 0;
     loopInfo.running = true;
@@ -236,14 +236,14 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
     }, 500);
 
     dimmerLoopTimer = setInterval(async () => {
-      dimValue = Math.pow(counter, 2) / (500000 / 3); //counter 100
+      dimValue = Math.pow(counter, 2) / (500000 / 2); //counter 100
       //var dimValue =  (Math.pow(counter, 2))/(500000/3) // ounter 1000
       dimValue = Math.round(dimValue * 1000) / 1000;
-      if (dimValue < 1) dimValue = 0;
+      if (dimValue < 0) dimValue = 0;
       if (dimValue > 10) dimValue = 10;
 
       ModbusHelper.setAnalogPortMain(dimValue);
-
+      //console.log(dimValue);
       if (deviceType.M523) {
         if (dimValue < MINIMALDIM) dimValue = MINIMALDIM;
         ModbusHelper.setAnalogPortExt(dimValue, 1); // set only if M523, else many errors on bus
@@ -533,13 +533,14 @@ var init = async () => {
   await ModbusHelper.setAnalogPortMain(0);
   //test loop for analog out test
   await runLedLoop();
-
-  console.log(await UnipiHelper.getDeviceType());
+  let deviceType = await UnipiHelper.getDeviceType();
+  console.log(deviceType);
   console.log("[SYSTEM] MINDIM: " + MINIMALDIM);
 
-  if (testLoop === "true") {
-    await runDimmerLoop(20);
+  if (testLoop === "true" && deviceType.M523) {
+    await runDimmerLoop(10);
   }
+  //await runDimmerLoop(10);
   console.log("[SYSTEM] ----- init done -----");
 };
 init();

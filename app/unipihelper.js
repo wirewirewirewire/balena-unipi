@@ -386,7 +386,7 @@ module.exports = {
           callback(triggerPinData);
         }
         if (DEBUG) console.log(triggerPinData);
-      }, 1000);
+      }, 50);
       inputParserTimer.push(timer); //add timer to array to cancel later
     });
   },
