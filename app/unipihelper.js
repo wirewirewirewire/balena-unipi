@@ -100,8 +100,13 @@ var readCounter = async (startaddress, analogaddress, pinNames) => {
         console.log("New String: " + registerDataPins);
 
         let difference = findFirstDifferencePosition(savedString, registerDataPins);
+        console.log("Difference: " + difference);
         inputTriggerCount[analogaddress] = registerDataPins;
-        pinCount = count - difference;
+        //let pinCount = count - difference;
+        let pinCount = 16 - difference;
+
+        console.log("pinCount: " + pinCount);
+
         //console.log("[UNIPI] Input Trigger DIF: ");
         //console.log(pinCount);
         //console.log("Pin: " + pinNames[pinCount - 1]);
@@ -383,6 +388,7 @@ module.exports = {
         if (DEBUG) console.log("[UNIPI] --- PinCheck Loop ---");
         var triggerPinData = await readCounter(startaddress, analogaddress, nameArray);
         if (triggerPinData.update) {
+          //console.log(triggerPinData);
           callback(triggerPinData);
         }
         if (DEBUG) console.log(triggerPinData);
