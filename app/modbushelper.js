@@ -108,7 +108,7 @@ module.exports = {
         return;
       } catch (e) {
         // if error return -1
-        if (DEBUG) console.log("[MB READ] Error Register Read: " + e.message);
+        console.log("[MB READ] Error Register Read: " + e.message);
         resolve(false);
         return -1;
       }

@@ -330,6 +330,7 @@ var initPins = async () => {
       return;
     }
     if (deviceType.M303) {
+      /*
       UnipiHelper.attachInputCallback(8, 0, ["1.1", "1.2", "1.3", "1.4"], async (data) => {
         if (data.update) {
           for (let index = 0; index < data.pinTrigger.length; index++) {
@@ -337,7 +338,7 @@ var initPins = async () => {
             socketSendMessage({ message: "digitalin", data: { pinName: element } });
           }
         }
-      });
+      });*/
       UnipiHelper.attachInputCallback(
         103,
         100,
@@ -527,13 +528,16 @@ var init = async () => {
   await ModbusHelper.connect(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
   await UnipiHelper.checkDeviceType();
   await initPins();
-  await runDimmerLoop(100, false);
+  let deviceType = await UnipiHelper.getDeviceType();
 
-  await ModbusHelper.setAnalogPortExt(2, 1);
-  await ModbusHelper.setAnalogPortMain(0);
+  if (deviceType.M523) {
+    await runDimmerLoop(100, false);
+    await ModbusHelper.setAnalogPortExt(2, 1);
+    await ModbusHelper.setAnalogPortMain(0);
+  }
+
   //test loop for analog out test
   await runLedLoop();
-  let deviceType = await UnipiHelper.getDeviceType();
   console.log(deviceType);
   console.log("[SYSTEM] MINDIM: " + MINIMALDIM);
 
@@ -541,6 +545,7 @@ var init = async () => {
     await runDimmerLoop(10);
   }
   //await runDimmerLoop(10);
+
   console.log("[SYSTEM] ----- init done -----");
 };
 init();
