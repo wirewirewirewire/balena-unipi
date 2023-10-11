@@ -7,6 +7,8 @@ services:
     network_mode: "host"
     ports:
       - "8007:8007"
+      - "161:161/udp"
+      - "162:162/udp"
     volumes:
       - "drive2:/usr/src/app/drive"
     privileged: true

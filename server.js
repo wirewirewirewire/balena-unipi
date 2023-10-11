@@ -21,6 +21,7 @@ const WS_PORT = 8007; //Socket
 
 const testLoop = process.env.TEST || "false";
 const MINIMALDIM = process.env.MINIMALDIM || 0;
+const MAXIMALDIM = process.env.MAXIMALDIM || 0;
 
 var debug = process.env.DEBUG == "true" ? true : false;
 const clients = {};
@@ -132,73 +133,6 @@ async function runLedLoop(stop = undefined) {
   }, 1000);
 }
 
-var runDimmerLoopTest = async (start = undefined) => {
-  return new Promise(async (resolve, reject) => {
-    if (start != undefined && start != true) {
-      console.log("[DEBUG] dimmer test stop");
-      clearTimeout(dimmerTestLoopTimer);
-      dimmerTestLoopTimer = undefined;
-      loopInfo.runningTest = false;
-      loopInfo.loopTimeMs = 0;
-      resolve(true);
-      return;
-    }
-    if (dimmerTestLoopTimer != undefined) {
-      console.log("[SYSTEM] dimmer test running");
-      resolve(false);
-      return;
-    }
-
-    console.log("[SYSTEM] dimmer test start");
-
-    var time = 150;
-    var counterStart = 30;
-    var countLimit = 120;
-
-    var counter = counterStart;
-    var dimValue = 0;
-    var countUp = false;
-    loopInfo.runningTest = true;
-    var dimmerLoopTimeMs = (countLimit - counterStart) * time;
-    loopInfo.loopTimeMs = dimmerLoopTimeMs;
-
-    dimmerTestLoopTimer = setInterval(async () => {
-      dimValue = Math.pow(counter, 2) / (4000 / 3); //counter 100
-
-      dimValue = Math.round(dimValue * 1000) / 1000;
-      if (dimValue < 1) dimValue = 0;
-      if (dimValue > 10) dimValue = 10;
-
-      ModbusHelper.setAnalogPortMain(dimValue);
-      ModbusHelper.setAnalogPortExt(dimValue, 1);
-      ModbusHelper.setAnalogPortExt(dimValue, 2);
-      ModbusHelper.setAnalogPortExt(dimValue, 3);
-      ModbusHelper.setAnalogPortExt(dimValue, 4);
-
-      if (counter < countLimit && countUp) {
-        counter++;
-      } else {
-        if (countUp)
-          await socketSendMessage({
-            message: "dimmerlooptest",
-            data: { loopRunning: loopInfo.runningTest, loopDirection: "down", loopTimeMs: dimmerLoopTimeMs },
-          });
-        countUp = false;
-        counter--;
-        if (counter <= counterStart) {
-          if (!countUp)
-            await socketSendMessage({
-              message: "dimmerlooptest",
-              data: { loopRunning: loopInfo.runningTest, loopDirection: "up", loopTimeMs: dimmerLoopTimeMs },
-            });
-          countUp = true;
-        }
-      }
-    }, time);
-    resolve(true);
-  });
-};
-
 var runDimmerLoop = async (time = 100, start = undefined) => {
   return new Promise(async (resolve, reject) => {
     if (start != undefined) {
@@ -241,12 +175,18 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
       dimValue = Math.round(dimValue * 1000) / 1000;
       if (dimValue < 0) dimValue = 0;
       if (dimValue > 10) dimValue = 10;
+      let dimValueLight = dimValue;
+
+      if (dimValue > 2) dimValue = 2; // not fully transparent
+      if (dimValue < 1.5) dimValue = 1.5; // not fully milk
 
       ModbusHelper.setAnalogPortMain(dimValue);
-      //console.log(dimValue);
+
       if (deviceType.M523) {
-        if (dimValue < MINIMALDIM) dimValue = MINIMALDIM;
-        ModbusHelper.setAnalogPortExt(dimValue, 1); // set only if M523, else many errors on bus
+        if (dimValueLight < 2.5) dimValueLight = 2.5; // light
+        //console.log("Light: " + dimValueLight);
+        //console.log("LC: " + dimValue);
+        ModbusHelper.setAnalogPortExt(dimValueLight, 1); // set only if M523, else many errors on bus
       }
 
       if (counter < countLimit && countUp) {
@@ -425,7 +365,6 @@ var wsMessageHandler = async (messageData) => {
       case "lcstart":
         var dimValue = 100;
         await runDimmerLoop(100, false);
-        await runDimmerLoopTest(false);
         if (jsonData.hasOwnProperty("value")) {
           dimValue = jsonData.value;
         }
@@ -433,17 +372,14 @@ var wsMessageHandler = async (messageData) => {
         break;
       case "lcoff":
         await runDimmerLoop(100, false);
-        await runDimmerLoopTest(false);
         UnipiHelper.setLcLevel(0);
         break;
       case "lcon":
         await runDimmerLoop(100, false);
-        await runDimmerLoopTest(false);
         UnipiHelper.setLcLevel(90);
         break;
       case "lcset":
         await runDimmerLoop(100, false);
-        await runDimmerLoopTest(false);
         var dimValue = 100;
         if (jsonData.hasOwnProperty("value")) {
           dimValue = jsonData.value;
