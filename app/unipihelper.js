@@ -96,16 +96,16 @@ var readCounter = async (startaddress, analogaddress, pinNames) => {
       if (inputTriggerCount[analogaddress] != registerDataPins && registerDataPins != undefined) {
         if (inputTriggerCount[analogaddress] == undefined) inputTriggerCount[analogaddress] = registerDataPins;
         let savedString = inputTriggerCount[analogaddress];
-        console.log("Saved String: " + savedString);
-        console.log("New String: " + registerDataPins);
+        //console.log("Saved String: " + savedString);
+        //console.log("New String: " + registerDataPins);
 
         let difference = findFirstDifferencePosition(savedString, registerDataPins);
-        console.log("Difference: " + difference);
+        //console.log("Difference: " + difference);
         inputTriggerCount[analogaddress] = registerDataPins;
         //let pinCount = count - difference;
         let pinCount = 16 - difference;
 
-        console.log("pinCount: " + pinCount);
+        //console.log("pinCount: " + pinCount);
 
         //console.log("[UNIPI] Input Trigger DIF: ");
         //console.log(pinCount);
@@ -113,7 +113,13 @@ var readCounter = async (startaddress, analogaddress, pinNames) => {
         returnData.update = true;
         returnData.pinTriggerCount++;
         returnData.pinTrigger.push(pinNames[pinCount - 1]);
-        console.log("[UNIPI] Return Press Pin:");
+
+        const now = new Date();
+        const formattedTime = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")} ${now
+          .getDate()
+          .toString()
+          .padStart(2, "0")}.${(now.getMonth() + 1).toString().padStart(2, "0")}.${now.getFullYear()}`;
+        console.log("[UNIPI] (" + formattedTime + ") Return Press Pin:");
         console.log(returnData);
         //console.log(inputTriggerCount);
       }

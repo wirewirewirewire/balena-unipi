@@ -20,8 +20,9 @@ const UNIPI_MODBUS_PORT = 502;
 const WS_PORT = 8007; //Socket
 
 const testLoop = process.env.TEST || "false";
-const MINIMALDIM = process.env.MINIMALDIM || 0;
-const MAXIMALDIM = process.env.MAXIMALDIM || 0;
+const MINIMALDIM = process.env.MINIMALDIM || 1.5;
+const MAXIMALDIM = process.env.MAXIMALDIM || 2;
+const MINIMALDIMLIGHT = process.env.MINIMALDIMLIGHT || 2.5;
 
 var debug = process.env.DEBUG == "true" ? true : false;
 const clients = {};
@@ -177,13 +178,13 @@ var runDimmerLoop = async (time = 100, start = undefined) => {
       if (dimValue > 10) dimValue = 10;
       let dimValueLight = dimValue;
 
-      if (dimValue > 2) dimValue = 2; // not fully transparent
-      if (dimValue < 1.5) dimValue = 1.5; // not fully milk
+      if (dimValue > MAXIMALDIM) dimValue = MAXIMALDIM; // not fully transparent
+      if (dimValue < MINIMALDIM) dimValue = MINIMALDIM; // not fully milk
 
       ModbusHelper.setAnalogPortMain(dimValue);
 
       if (deviceType.M523) {
-        if (dimValueLight < 2.5) dimValueLight = 2.5; // light
+        if (dimValueLight < MINIMALDIMLIGHT) dimValueLight = MINIMALDIMLIGHT; // light
         //console.log("Light: " + dimValueLight);
         //console.log("LC: " + dimValue);
         ModbusHelper.setAnalogPortExt(dimValueLight, 1); // set only if M523, else many errors on bus
@@ -409,6 +410,7 @@ var socketSendMessage = async (messageData) => {
       resolve(false);
       return;
     }
+    console.log("[WS] send: " + JSON.stringify(messageData));
     wsConnection.send(JSON.stringify(messageData));
     resolve(true);
   });
@@ -475,7 +477,8 @@ var init = async () => {
   //test loop for analog out test
   await runLedLoop();
   console.log(deviceType);
-  console.log("[SYSTEM] MINDIM: " + MINIMALDIM);
+  console.log("[SYSTEM] LC MINDIM: " + MINIMALDIM + " MAXDIM: " + MAXIMALDIM);
+  console.log("[SYSTEM] LED MINDIM: " + MINIMALDIMLIGHT);
 
   if (testLoop === "true" && deviceType.M523) {
     await runDimmerLoop(10);
