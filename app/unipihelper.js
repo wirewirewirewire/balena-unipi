@@ -80,6 +80,24 @@ function findFirstDifferencePosition(str1, str2) {
   return -1; // No differences found
 }
 
+function resetDeviceController() {
+  return new Promise(async (resolve, reject) => {
+    //await ModbusHelper.writeRegister(register,[ledByte]);
+    console.log("[UNIPI] Reset UniPi Controller");
+    await ModbusHelper.writeCoil(1002, [true]); //Reset Module 1
+    await ModbusHelper.writeCoil(1102, [true]); //Reset Module 2
+    await ModbusHelper.writeCoil(1202, [true]); //Reset Module 3
+    await delay(500);
+    //make sure device is ready after reset
+    for (let index = 0; index < 10; index++) {
+      var checkRegister0 = await ModbusHelper.readRegister(1000, 1);
+      if (checkRegister0[0] !== false) break;
+      await delay(500);
+    }
+    resolve(true);
+  });
+}
+
 var readCounter = async (startaddress, analogaddress, pinNames) => {
   count = pinNames.length;
   let returnData = {
@@ -223,18 +241,23 @@ module.exports = {
       //var registerData = await ModbusHelper.readRegister(1101, 1);
       var registerData = await ModbusHelper.readRegister(1101, 1);
       var registerData2 = await ModbusHelper.readRegister(1201, 1); // if false, no register
+      var register2Set = false;
+
       var parseData = parse16BitNumber(registerData);
       var portsInput = parseData.bytehigh;
       var portsOutput = parseData.bytelow;
-
-      //console.log(parseData);
-
-      console.log("Input Ports: " + portsInput + " Output Ports: " + portsOutput);
-      console.log("Register 2: " + registerData2[0]);
+      if (DEBUG) console.log("Register 1 Input Ports: " + portsInput + " Output Ports: " + portsOutput);
+      if (registerData2[0] !== undefined && registerData2[0] !== false && registerData2[0] !== 0) {
+        register2Set = true;
+        var parseData2 = parse16BitNumber(registerData2);
+        var portsInput2 = parseData2.bytehigh;
+        var portsOutput2 = parseData2.bytelow;
+        if (DEBUG) console.log("Register 2 Input Ports: " + portsInput2 + " Output Ports: " + portsOutput2);
+      }
       //console.log(parseData.bytehigh);
       //console.log(parseData.bytelow);*
 
-      if (portsInput === 16 && portsOutput === 14 && registerData2[0] !== undefined && registerData2[0] !== false && registerData2[0] !== 0) {
+      if (portsInput === 16 && portsOutput === 14 && register2Set) {
         if (DEBUG) console.log("[UNIPI] device type: unipi L203");
         DeviceType.L203 = true;
         DeviceType.capability.inputs = [
@@ -331,7 +354,7 @@ module.exports = {
         resolve(true);
         return;
       }
-      if (portsInput === 16 && portsOutput === 14 && (registerData2[0] === false || registerData2[0] == undefined)) {
+      if (portsInput === 16 && portsOutput === 14 && !register2Set) {
         if (DEBUG) console.log("[UNIPI] device type: unipi M203");
         DeviceType.M203 = true;
         DeviceType.capability.inputs = [
@@ -368,8 +391,13 @@ module.exports = {
   },
   getDeviceType: async function () {
     return new Promise(async (resolve, reject) => {
-      //TODO return also a pin map
       resolve(DeviceType);
+    });
+  },
+  resetDevice: async function () {
+    return new Promise(async (resolve, reject) => {
+      var isReset = await resetDeviceController();
+      resolve(isReset);
     });
   },
   clearInputCallback: async function () {

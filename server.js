@@ -465,6 +465,7 @@ var init = async () => {
   UnipiHelper.init(debug);
   await ModbusHelper.connect(UNIPI_IP_LOCAL, UNIPI_MODBUS_PORT);
   await UnipiHelper.checkDeviceType();
+  await UnipiHelper.resetDevice();
   await initPins();
   let deviceType = await UnipiHelper.getDeviceType();
 
